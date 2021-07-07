@@ -26,10 +26,10 @@ namespace Kogel.Cacheing.Test.Controllers
         }
 
         [HttpGet]
-        public ActionResult<object> Set()
+        public ActionResult<object> Set(string value = "test")
         {
             //写入
-            return cacheManager.StringSet("test_cache_time", DateTime.Now);
+            return cacheManager.StringSet("test_cache_time", value);
         }
 
         [HttpGet]

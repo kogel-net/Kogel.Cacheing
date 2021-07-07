@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Kogel.Cacheing.Test</name>
+    </assembly>
+    <members>
+        <member name="M:Kogel.Cacheing.Test.Swagger.SwaggerBuilderExtensions.UseSwaggers(Microsoft.AspNetCore.Builder.IApplicationBuilder,System.String)">
+            <summary>
+            
+            </summary>
+            <param name="app"></param>
+            <param name="apiName"></param>
+        </member>
+        <member name="M:Kogel.Cacheing.Test.Swagger.SwaggerBuilderExtensions.AddSwaggerGens(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.String,System.String[])">
+            <summary>
+            
+            </summary>
+            <param name="services"></param>
+            <param name="apiName"></param>
+            <param name="pathArr"></param>
+        </member>
+        <member name="T:Kogel.Cacheing.Test.Swagger.SwaggerBuilderExtensions.ApiVersions">
+            <summary>
+            Api接口版本 自定義
+            </summary>
+        </member>
+        <member name="F:Kogel.Cacheing.Test.Swagger.SwaggerBuilderExtensions.ApiVersions.V1">
+            <summary>
+            V1 版本
+            </summary>
+        </member>
+    </members>
+</doc>

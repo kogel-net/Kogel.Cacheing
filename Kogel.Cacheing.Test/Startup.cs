@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using Kogel.Cacheing.Test.Swagger;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
@@ -35,6 +36,8 @@ namespace Kogel.Cacheing.Test
                 kogel.WithPassword("tY7cRu9HG_jyDw2r");
                 kogel.WithSsl(false);
             });
+            //swagger
+            services.AddSwaggerGens(this.GetType().Namespace);
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
         }
@@ -50,6 +53,8 @@ namespace Kogel.Cacheing.Test
             {
                 app.UseHsts();
             }
+            //swagger
+            app.UseSwaggers(this.GetType().Namespace);
 
             app.UseHttpsRedirection();
             app.UseMvc();
