@@ -16,39 +16,38 @@ namespace Kogel.Cacheing.Test.Controllers
             this.cacheManager = cacheManager;
         }
 
-
         /// <summary>
         /// 获取string类型缓存
         /// </summary>
+        /// <param name="cacheKey">缓存键</param>
         /// <returns></returns>
         [HttpGet]
-        public ActionResult<object> Get()
+        public ActionResult<object> Get(string cacheKey)
         {
-            //获取
-            return cacheManager.StringGet<object>("test_cache_time");
+            return cacheManager.StringGet<object>(cacheKey);
         }
 
         /// <summary>
         /// 设置string类型缓存
         /// </summary>
-        /// <param name="value"></param>
+        /// <param name="cacheKey">缓存键</param>
+        /// <param name="value">值</param>
         /// <returns></returns>
         [HttpGet]
-        public ActionResult<object> Set(string value = "test")
+        public ActionResult<object> Set(string cacheKey, string value = "test")
         {
-            //写入
-            return cacheManager.StringSet("test_cache_time", value);
+            return cacheManager.StringSet(cacheKey, value);
         }
 
         /// <summary>
         /// 互斥锁
         /// </summary>
+        /// <param name="cacheKey">缓存键</param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<ActionResult<object>> Mutex()
+        public async Task<ActionResult<object>> Mutex(string cacheKey = "test_cache_mutex")
         {
-            //互斥锁
-            using (var mutex = cacheManager.LockMutex("test_cache_mutex", TimeSpan.FromSeconds(10)))
+            using (var mutex = cacheManager.LockMutex(cacheKey, TimeSpan.FromSeconds(10)))
             {
                 await Task.Delay(10000);
                 return "互斥锁xxx";
