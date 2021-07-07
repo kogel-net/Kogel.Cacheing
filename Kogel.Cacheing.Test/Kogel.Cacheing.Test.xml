@@ -4,6 +4,25 @@
         <name>Kogel.Cacheing.Test</name>
     </assembly>
     <members>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.Get">
+            <summary>
+            获取string类型缓存
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.Set(System.String)">
+            <summary>
+            设置string类型缓存
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.Mutex">
+            <summary>
+            互斥锁
+            </summary>
+            <returns></returns>
+        </member>
         <member name="M:Kogel.Cacheing.Test.Swagger.SwaggerBuilderExtensions.UseSwaggers(Microsoft.AspNetCore.Builder.IApplicationBuilder,System.String)">
             <summary>
             

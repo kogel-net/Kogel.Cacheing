@@ -17,7 +17,10 @@ namespace Kogel.Cacheing.Test.Controllers
         }
 
 
-        // GET api/values
+        /// <summary>
+        /// 获取string类型缓存
+        /// </summary>
+        /// <returns></returns>
         [HttpGet]
         public ActionResult<object> Get()
         {
@@ -25,6 +28,11 @@ namespace Kogel.Cacheing.Test.Controllers
             return cacheManager.StringGet<object>("test_cache_time");
         }
 
+        /// <summary>
+        /// 设置string类型缓存
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
         [HttpGet]
         public ActionResult<object> Set(string value = "test")
         {
@@ -32,6 +40,10 @@ namespace Kogel.Cacheing.Test.Controllers
             return cacheManager.StringSet("test_cache_time", value);
         }
 
+        /// <summary>
+        /// 互斥锁
+        /// </summary>
+        /// <returns></returns>
         [HttpGet]
         public async Task<ActionResult<object>> Mutex()
         {
