@@ -16,7 +16,7 @@ namespace Microsoft.Extensions.DependencyInjection
         public static IServiceCollection AddCacheing(this IServiceCollection services, Action<RedisCacheConfig> setup)
         {
             //redis缓存注入
-            services.AddSingleton<ICacheManager>(CacheFactory.Build(setup));
+            services.AddSingleton(CacheFactory.Build(setup));
             return services;
         }
     }
