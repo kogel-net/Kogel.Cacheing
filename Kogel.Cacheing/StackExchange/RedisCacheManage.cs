@@ -7,6 +7,7 @@ using System.Configuration;
 using StackExchange.Redis;
 using System.Threading;
 using Polly;
+using Kogel.Cacheing.StackExchange;
 
 namespace Kogel.Cacheing.StackExchangeImplement
 {
@@ -553,6 +554,14 @@ namespace Kogel.Cacheing.StackExchangeImplement
             return GetPooledClientManager(cacheKey).HashGetAll<T>(cacheKey);
         }
 
+        public T HashGet<T>(string dataKey)
+        {
+            string cacheKey = dataKey;
+            if (dataKey.IndexOf("_") != -1)
+                cacheKey = dataKey.Substring(0, dataKey.IndexOf("_"));
+            return HashGet<T>(cacheKey, dataKey);
+        }
+
         public T HashGet<T>(string cacheKey, string dataKey)
         {
             return GetPooledClientManager(cacheKey).HashGet<T>(cacheKey, dataKey);
@@ -563,6 +572,16 @@ namespace Kogel.Cacheing.StackExchangeImplement
             return GetPooledClientManager(cacheKey).HashSet(cacheKey, dataKey, value);
         }
 
+        public bool HashSet<T>(string dataKey, T data, int expireMinutes = 30)
+        {
+            string cacheKey = dataKey;
+            if (dataKey.IndexOf("_") != -1)
+                cacheKey = dataKey.Substring(0, dataKey.IndexOf("_"));
+            bool result = HashKeys(cacheKey, dataKey, data);
+            if (result)
+                ExpireEntryAt(cacheKey, TimeSpan.FromMinutes(expireMinutes));
+            return result;
+        }
 
         #region Lock
 
@@ -585,11 +604,11 @@ namespace Kogel.Cacheing.StackExchangeImplement
         /// 设置互斥锁
         /// </summary>
         /// <param name="cacheKey"></param>
-        /// <param name="LockOutTime">锁超时时间</param>
+        /// <param name="lockOutTime">锁超时时间</param>
         /// <param name="retryAttemptMillseconds">尝试间隔时间</param>
         /// <param name="retryTimes">尝试次数</param>
         /// <returns></returns>
-        public MutexDisposable LockMutex(string cacheKey,
+        public IMutexDisposable LockMutex(string cacheKey,
             TimeSpan lockOutTime,
             int retryAttemptMillseconds = 300,
             int retryTimes = 100)
@@ -615,7 +634,7 @@ namespace Kogel.Cacheing.StackExchangeImplement
                 }
                 else
                 {
-                    return new MutexDisposable(this, cacheKey);
+                    return new RedisMutexDisposable(this, cacheKey);
                 }
             }
             while (retryTimes > 0);
@@ -805,24 +824,5 @@ namespace Kogel.Cacheing.StackExchangeImplement
         #endregion
 
         #endregion
-    }
-
-    /// <summary>
-    /// 互斥锁释放器
-    /// </summary>
-    public class MutexDisposable : IDisposable
-    {
-        private readonly ICacheManager cacheManager;
-        private readonly string cacheKey;
-        public MutexDisposable(ICacheManager cacheManager, string cacheKey)
-        {
-            this.cacheManager = cacheManager;
-            this.cacheKey = cacheKey;
-        }
-
-        public void Dispose()
-        {
-            cacheManager.ExitMutex(cacheKey);
-        }
     }
 }

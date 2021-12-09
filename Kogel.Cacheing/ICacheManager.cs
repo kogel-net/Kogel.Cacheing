@@ -141,7 +141,7 @@ namespace Kogel.Cacheing
         /// <param name="retryAttemptMillseconds">尝试间隔时间</param>
         /// <param name="retryTimes">尝试次数</param>
         /// <returns></returns>
-        MutexDisposable LockMutex(string cacheKey,
+        IMutexDisposable LockMutex(string cacheKey,
             TimeSpan lockOutTime,
             int retryAttemptMillseconds = 300,
             int retryTimes = 100);
@@ -186,6 +186,8 @@ namespace Kogel.Cacheing
         double HashDecrement(string cacheKey, string dataKey, double value = 1);
 
         List<T> HashKeys<T>(string cacheKey);
+
+        T HashGet<T>(string dataKey);
 
         T HashGet<T>(string cacheKey, string dataKey);
 
@@ -295,5 +297,9 @@ namespace Kogel.Cacheing
 
         Task<dynamic> ExecuteAsync(string script, params object[] objs);
         #endregion
+    }
+
+    public interface IMutexDisposable : IDisposable
+    {
     }
 }
