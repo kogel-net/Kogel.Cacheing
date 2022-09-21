@@ -303,11 +303,11 @@ namespace Kogel.Cacheing.Memory
             lock (_cache)
             {
                 if (KeyExists(key))
-                    return true;
+                    return false;
                 else
                 {
                     StringSet(key, lockValue, expiry);
-                    return false;
+                    return true;
                 }
             }
         }
