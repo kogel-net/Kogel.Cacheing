@@ -55,6 +55,20 @@
             <param name="cacheKey">缓存键</param>
             <returns></returns>
         </member>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.StringIncrement(System.String)">
+            <summary>
+            自增
+            </summary>
+            <param name="cacheKey"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.StringDecrement(System.String)">
+            <summary>
+            自减
+            </summary>
+            <param name="cacheKey"></param>
+            <returns></returns>
+        </member>
         <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.PublishSubscribe">
             <summary>
             发布订阅

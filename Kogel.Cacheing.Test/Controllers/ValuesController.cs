@@ -88,9 +88,31 @@ namespace Kogel.Cacheing.Test.Controllers
         {
             using (var mutex = cacheManager.LockMutex(cacheKey, TimeSpan.FromSeconds(10)))
             {
-                await Task.Delay(1000);
+                await Task.Delay(10000);
                 return "互斥锁xxx";
             }
+        }
+
+        /// <summary>
+        /// 自增
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public async Task<ActionResult<object>> StringIncrement(string cacheKey= "test_cache_rement")
+        {
+            return cacheManager.StringIncrement(cacheKey, 1);
+        }
+
+        /// <summary>
+        /// 自减
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public async Task<ActionResult<object>> StringDecrement(string cacheKey = "test_cache_rement")
+        {
+            return cacheManager.StringDecrement(cacheKey, 1);
         }
 
         /// <summary>
@@ -104,11 +126,15 @@ namespace Kogel.Cacheing.Test.Controllers
             //订阅频道
             cacheManager.Subscribe(channelName, (str) =>
             {
-                Console.WriteLine(str);
+                Console.WriteLine($"test1:{str}");
+            });
+            cacheManager.Subscribe(channelName, (str) =>
+            {
+                Console.WriteLine($"test2:{str}");
             });
             //发布频道
-            cacheManager.Publish(channelName, "测试消息1");
-            cacheManager.Publish(channelName, "测试消息2");
+            cacheManager.Publish(channelName, "aaa");
+            cacheManager.Publish(channelName, "bbb");
             await Task.Delay(10000);
             return "测试发布订阅";
         }

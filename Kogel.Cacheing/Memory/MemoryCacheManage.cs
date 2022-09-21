@@ -77,9 +77,10 @@ namespace Kogel.Cacheing.Memory
         /// <returns></returns>
         public double HashDecrement(string cacheKey, string dataKey, double value = 1)
         {
-            using (LockMutex($"{cacheKey}:{dataKey}", TimeSpan.FromSeconds(5)))
+            cacheKey = $"{cacheKey}:{dataKey}";
+            using (LockMutex($"{cacheKey}:Lock", TimeSpan.FromSeconds(5)))
             {
-                double cacheValue = StringGet<double>($"{cacheKey}:{dataKey}");
+                double cacheValue = StringGet<double>(cacheKey);
                 cacheValue -= value;
                 _cache.Set(cacheKey, cacheValue);
                 return cacheValue;
@@ -143,9 +144,10 @@ namespace Kogel.Cacheing.Memory
         /// <returns></returns>
         public double HashIncrement(string cacheKey, string dataKey, double value = 1)
         {
-            using (LockMutex($"{cacheKey}:{dataKey}", TimeSpan.FromSeconds(5)))
+            cacheKey = $"{cacheKey}:{dataKey}";
+            using (LockMutex($"{cacheKey}:Lock", TimeSpan.FromSeconds(5)))
             {
-                double cacheValue = StringGet<double>($"{cacheKey}:{dataKey}");
+                double cacheValue = StringGet<double>(cacheKey);
                 cacheValue += value;
                 _cache.Set(cacheKey, cacheValue);
                 return cacheValue;
