@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace Kogel.Cacheing.Test.Controllers
 {
+    /// <summary>
+    /// 测试缓存
+    /// </summary>
     [Route("api/[controller]/[action]")]
     [ApiController]
     public class ValuesController : ControllerBase
@@ -37,6 +40,31 @@ namespace Kogel.Cacheing.Test.Controllers
         public ActionResult<object> Set(string cacheKey, string value = "test")
         {
             return cacheManager.StringSet(cacheKey, value);
+        }
+
+        /// <summary>
+        /// 获取hash类型缓存
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public ActionResult<object> HashGet(string cacheKey, string dataKey)
+        {
+            return cacheManager.HashGet<object>(cacheKey, dataKey);
+        }
+
+        /// <summary>
+        /// 设置hash类型缓存
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public ActionResult<object> HashSet(string cacheKey, string dataKey, string value = "hash test")
+        {
+            return cacheManager.HashSet(cacheKey, dataKey, value);
         }
 
         /// <summary>

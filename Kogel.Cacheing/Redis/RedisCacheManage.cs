@@ -579,21 +579,21 @@ namespace Kogel.Cacheing.Redis
             return GetPooledClientManager(cacheKey).HashGet<T>(cacheKey, dataKey);
         }
 
-        public bool HashKeys<T>(string cacheKey, string dataKey, T value)
+        public bool HashSet<T>(string cacheKey, string dataKey, T value)
         {
             return GetPooledClientManager(cacheKey).HashSet(cacheKey, dataKey, value);
         }
 
-        public bool HashSet<T>(string dataKey, T data, int expireMinutes = 30)
-        {
-            string cacheKey = dataKey;
-            if (dataKey.IndexOf("_") != -1)
-                cacheKey = dataKey.Substring(0, dataKey.IndexOf("_"));
-            bool result = HashKeys(cacheKey, dataKey, data);
-            if (result)
-                ExpireEntryAt(cacheKey, TimeSpan.FromMinutes(expireMinutes));
-            return result;
-        }
+        //public bool HashSet<T>(string dataKey, T data, int expireMinutes = 30)
+        //{
+        //    string cacheKey = dataKey;
+        //    if (dataKey.IndexOf("_") != -1)
+        //        cacheKey = dataKey.Substring(0, dataKey.IndexOf("_"));
+        //    bool result = HashSet(cacheKey, dataKey, data);
+        //    if (result)
+        //        ExpireEntryAt(cacheKey, TimeSpan.FromMinutes(expireMinutes));
+        //    return result;
+        //}
 
         #region Lock
 

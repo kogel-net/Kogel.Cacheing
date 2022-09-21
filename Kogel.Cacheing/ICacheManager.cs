@@ -183,15 +183,48 @@ namespace Kogel.Cacheing
         double HashIncrement(string cacheKey, string dataKey, double value = 1);
         double HashDecrement(string cacheKey, string dataKey, double value = 1);
 
+        /// <summary>
+        /// 获取键下所有缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <returns></returns>
         List<T> HashKeys<T>(string cacheKey);
 
+        /// <summary>
+        /// 获取hash缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataKey"></param>
+        /// <returns></returns>
         T HashGet<T>(string dataKey);
 
+        /// <summary>
+        /// 获取hash缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <returns></returns>
         T HashGet<T>(string cacheKey, string dataKey);
 
+        /// <summary>
+        /// 获取键下所有缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <returns></returns>
         IDictionary<string, T> HashGetAll<T>(string cacheKey);
 
-        bool HashKeys<T>(string cacheKey, string dataKey, T value);
+        /// <summary>
+        /// 写入hash缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        bool HashSet<T>(string cacheKey, string dataKey, T value);
         #endregion
 
         #region List

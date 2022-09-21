@@ -10,6 +10,7 @@ namespace Kogel.Cacheing.Memory
     using Microsoft.Extensions.Caching.Memory;
     using Polly;
     using System.Collections;
+    using System.Reflection;
     using System.Threading;
 
     public class MemoryCacheManage : ProviderManage, ICacheManager
@@ -45,7 +46,6 @@ namespace Kogel.Cacheing.Memory
                   {
                       Console.WriteLine($"执行异常,重试次数：{retryCount},【异常来自：{exception.GetType().Name}】.");
                   });
-
             polly.Execute(() =>
             {
                 LockRelease(cacheKey, "");
@@ -86,19 +86,52 @@ namespace Kogel.Cacheing.Memory
             }
         }
 
+        /// <summary>
+        /// 获取hash缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataKey"></param>
+        /// <returns></returns>
         public T HashGet<T>(string dataKey)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            string cacheKey = dataKey;
+            if (dataKey.IndexOf("_") != -1)
+                cacheKey = dataKey.Substring(0, dataKey.IndexOf("_"));
+            return HashGet<T>(cacheKey, dataKey);
         }
 
+        /// <summary>
+        /// 获取hash缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <returns></returns>
         public T HashGet<T>(string cacheKey, string dataKey)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            return StringGet<T>($"{cacheKey}:{dataKey}");
         }
 
+        /// <summary>
+        /// 获取键下所有缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <returns></returns>
         public IDictionary<string, T> HashGetAll<T>(string cacheKey)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var entries = _cache.GetType().GetField("_entries", flags).GetValue(_cache);
+            var cacheItems = entries as IDictionary;
+            var data = new Dictionary<string, T>();
+            if (cacheItems == null) return data;
+            foreach (DictionaryEntry cacheItem in cacheItems)
+            {
+                var cacheItemKey = cacheItem.Key.ToString();
+                if (cacheItemKey.StartsWith($"{cacheKey}:"))
+                    data.Add(cacheItemKey, (T)cacheItem.Value);
+            }
+            return data;
         }
 
         /// <summary>
@@ -119,14 +152,28 @@ namespace Kogel.Cacheing.Memory
             }
         }
 
+        /// <summary>
+        /// 获取键下所有缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <returns></returns>
         public List<T> HashKeys<T>(string cacheKey)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            return HashGetAll<T>(cacheKey).Select(x => x.Value).ToList();
         }
 
-        public bool HashKeys<T>(string cacheKey, string dataKey, T value)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool HashSet<T>(string cacheKey, string dataKey, T value)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            return StringSet($"{cacheKey}:{dataKey}", value);
         }
 
         #endregion
@@ -222,6 +269,12 @@ namespace Kogel.Cacheing.Memory
             throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         public string LockQuery(string key)
         {
             throw new NotImplementedException("内存缓存没有此操作");
@@ -353,14 +406,26 @@ namespace Kogel.Cacheing.Memory
             throw new NotImplementedException("内存缓存没有此操作");
         }
 
+        /// <summary>
+        /// 为数字减少val
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="val"></param>
+        /// <returns></returns>
         public double StringDecrement(string cacheKey, double val = 1)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            return HashDecrement(cacheKey, "String", val);
         }
 
+        /// <summary>
+        /// 为数字减少val
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="val"></param>
+        /// <returns></returns>
         public Task<double> StringDecrementAsync(string cacheKey, double val = 1)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            return Task.Run(() => StringDecrement(cacheKey, val));
         }
 
         /// <summary>
@@ -380,19 +445,37 @@ namespace Kogel.Cacheing.Memory
             return default;
         }
 
-        public Task<T> StringGetAsync<T>(string cacheKey)
+        /// <summary>
+        /// 获取缓存
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="cacheKey"></param>
+        /// <returns></returns>
+        public async Task<T> StringGetAsync<T>(string cacheKey)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            return await Task.Run(() => StringGet<T>(cacheKey));
         }
 
+        /// <summary>
+        /// 为数字增加val
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="val"></param>
+        /// <returns></returns>
         public double StringIncrement(string cacheKey, double val = 1)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            return HashIncrement(cacheKey, "String", val);
         }
 
-        public Task<double> StringIncrementAsync(string cacheKey, double val = 1)
+        /// <summary>
+        /// 为数字增加val
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="val"></param>
+        /// <returns></returns>
+        public async Task<double> StringIncrementAsync(string cacheKey, double val = 1)
         {
-            throw new NotImplementedException("内存缓存没有此操作");
+            return await Task.Run(() => StringIncrement(cacheKey, val));
         }
 
         /// <summary>

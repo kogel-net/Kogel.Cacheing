@@ -19,6 +19,23 @@
             <param name="value">值</param>
             <returns></returns>
         </member>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.HashGet(System.String,System.String)">
+            <summary>
+            获取hash类型缓存
+            </summary>
+            <param name="cacheKey"></param>
+            <param name="dataKey"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.HashSet(System.String,System.String,System.String)">
+            <summary>
+            设置hash类型缓存
+            </summary>
+            <param name="cacheKey"></param>
+            <param name="dataKey"></param>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
         <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.Mutex(System.String)">
             <summary>
             互斥锁
