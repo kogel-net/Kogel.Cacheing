@@ -5,7 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Reflection.Emit;
-namespace Kogel.Cacheing.StackExchangeImplement
+
+namespace Kogel.Cacheing.Redis
 {
     /// <summary>
     /// Redis操作

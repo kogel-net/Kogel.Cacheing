@@ -3,7 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Configuration;
 
-namespace Kogel.Cacheing.StackExchangeImplement
+namespace Kogel.Cacheing.Redis
 {
     /// <summary>
     /// ConnectionMultiplexer对象管理帮助类

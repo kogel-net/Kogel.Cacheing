@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Kogel.Cacheing.StackExchangeImplement
+namespace Kogel.Cacheing.Redis
 { 
     static class RedisCacheConfigHelper
     {

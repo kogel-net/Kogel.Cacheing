@@ -13,7 +13,7 @@ namespace Kogel.Cacheing.Test.Controllers
         ICacheManager cacheManager;
         public ValuesController(ICacheManager cacheManager)
         {
-            this.cacheManager = cacheManager;
+            this.cacheManager = cacheManager.GetMemoryCache();
         }
 
         /// <summary>
@@ -49,9 +49,42 @@ namespace Kogel.Cacheing.Test.Controllers
         {
             using (var mutex = cacheManager.LockMutex(cacheKey, TimeSpan.FromSeconds(10)))
             {
-                await Task.Delay(10000);
+                await Task.Delay(1000);
                 return "互斥锁xxx";
             }
+        }
+
+        /// <summary>
+        /// 发布订阅
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        public async Task<ActionResult<object>> PublishSubscribe()
+        {
+            string channelName = "channel1";
+            //订阅频道
+            cacheManager.Subscribe(channelName, (str) =>
+            {
+                Console.WriteLine(str);
+            });
+            //发布频道
+            cacheManager.Publish(channelName, "测试消息1");
+            cacheManager.Publish(channelName, "测试消息2");
+            await Task.Delay(10000);
+            return "测试发布订阅";
+        }
+
+        /// <summary>
+        /// 发布一条消息
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        public Task Publish(string msg = "")
+        {
+            string channelName = "channel1";
+            //发布频道
+            cacheManager.Publish(channelName, $"测试消息:{msg}");
+            return Task.CompletedTask;
         }
     }
 }

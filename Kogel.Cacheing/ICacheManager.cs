@@ -1,8 +1,14 @@
-﻿using Kogel.Cacheing.StackExchangeImplement;
+﻿using Kogel.Cacheing.Redis;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+
+#if NETSTANDARD || NETCOREAPP
+using Kogel.Cacheing.Memory;
+using Microsoft.Extensions.DependencyInjection;
+#endif
 
 namespace Kogel.Cacheing
 {
@@ -169,14 +175,6 @@ namespace Kogel.Cacheing
         /// <param name="cacheKey"></param>
         /// <param name="val"></param>
         /// <returns></returns>
-        void Subscribe<T>(string channelId, Action<T> handler);
-
-        /// <summary>
-        /// 订阅一个事件
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="val"></param>
-        /// <returns></returns>
         void Subscribe(string channelId, Action<object> handler);
         #endregion
 
@@ -297,9 +295,67 @@ namespace Kogel.Cacheing
 
         Task<dynamic> ExecuteAsync(string script, params object[] objs);
         #endregion
+
+        /// <summary>
+        /// 获取内存缓存
+        /// </summary>
+        /// <param name="value"></param>
+        ICacheManager GetMemoryCache();
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public interface IMutexDisposable : IDisposable
     {
     }
+
+    /// <summary>
+    /// 互斥锁释放器
+    /// </summary>
+    internal class MutexDisposable : IMutexDisposable
+    {
+        private readonly ICacheManager cacheManager;
+        private readonly string cacheKey;
+        public MutexDisposable(ICacheManager cacheManager, string cacheKey)
+        {
+            this.cacheManager = cacheManager;
+            this.cacheKey = cacheKey;
+        }
+
+        public void Dispose()
+        {
+            cacheManager.ExitMutex(cacheKey);
+        }
+
+        /// <summary>
+        /// 析构函数释放（防止异常不释放）
+        /// </summary>
+        ~MutexDisposable() => Dispose();
+    }
+
+
+    /// <summary>
+    /// 提供方配置
+    /// </summary>
+    public class ProviderManage
+    {
+        internal static object services;
+
+        /// <summary>
+        /// 提供方 0为redis 1为memorycache ,默认为redis
+        /// </summary>
+        /// <param name="value"></param>
+        public ICacheManager GetMemoryCache()
+        {
+
+#if NETSTANDARD || NETCOREAPP
+            var _serviceProvider = (services as IServiceCollection).BuildServiceProvider();
+            return _serviceProvider.GetService(typeof(MemoryCacheManage)) as ICacheManager;
+#else
+            return null;
+#endif
+        }
+    }
+
 }

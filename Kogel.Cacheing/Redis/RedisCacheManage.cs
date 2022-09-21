@@ -7,12 +7,11 @@ using System.Configuration;
 using StackExchange.Redis;
 using System.Threading;
 using Polly;
-using Kogel.Cacheing.StackExchange;
 
-namespace Kogel.Cacheing.StackExchangeImplement
+namespace Kogel.Cacheing.Redis
 {
 
-    class RedisCacheManage : ICacheManager
+    public class RedisCacheManage : ProviderManage, ICacheManager
     {
         #region private
 
@@ -53,7 +52,7 @@ namespace Kogel.Cacheing.StackExchangeImplement
         /// <summary>
         /// 创建链接池管理对象
         /// </summary>
-        public static ICacheManager Create(StackExchange.RedisCacheConfig config)
+        public static RedisCacheManage Create(RedisCacheConfig config)
         {
             ThreadPool.SetMinThreads(200, 200);
 
@@ -532,12 +531,25 @@ namespace Kogel.Cacheing.StackExchangeImplement
 
         #endregion
 
-
+        /// <summary>
+        /// 为数字增加val
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public double HashIncrement(string cacheKey, string dataKey, double value = 1)
         {
             return GetPooledClientManager(cacheKey).HashIncrement(cacheKey, dataKey, value);
         }
 
+        /// <summary>
+        /// 为数字减少val
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public double HashDecrement(string cacheKey, string dataKey, double value = 1)
         {
             return GetPooledClientManager(cacheKey).HashDecrement(cacheKey, dataKey, value);
@@ -613,7 +625,6 @@ namespace Kogel.Cacheing.StackExchangeImplement
             int retryAttemptMillseconds = 300,
             int retryTimes = 100)
         {
-            cacheKey = "Lock:" + cacheKey;
             do
             {
                 if (!LockTake(cacheKey, "", lockOutTime))
@@ -634,7 +645,7 @@ namespace Kogel.Cacheing.StackExchangeImplement
                 }
                 else
                 {
-                    return new RedisMutexDisposable(this, cacheKey);
+                    return new MutexDisposable(this, cacheKey);
                 }
             }
             while (retryTimes > 0);
@@ -657,7 +668,7 @@ namespace Kogel.Cacheing.StackExchangeImplement
 
             polly.Execute(() =>
             {
-                LockRelease("Lock:" + cacheKey, "");
+                LockRelease(cacheKey, "");
             });
         }
 
@@ -822,7 +833,6 @@ namespace Kogel.Cacheing.StackExchangeImplement
         }
 
         #endregion
-
         #endregion
     }
 }

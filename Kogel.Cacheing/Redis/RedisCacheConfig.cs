@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Kogel.Cacheing.StackExchange
+namespace Kogel.Cacheing.Redis
 {
     /// <summary>
     /// Redis服务配置
