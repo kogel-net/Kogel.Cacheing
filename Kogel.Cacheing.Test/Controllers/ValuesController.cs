@@ -68,6 +68,17 @@ namespace Kogel.Cacheing.Test.Controllers
         }
 
         /// <summary>
+        /// 获取键下所有缓存
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public IDictionary<string, object> HashGetAll(string cacheKey)
+        {
+            return cacheManager.HashGetAll<object>(cacheKey);
+        }
+
+        /// <summary>
         /// 互斥锁
         /// </summary>
         /// <param name="cacheKey">缓存键</param>

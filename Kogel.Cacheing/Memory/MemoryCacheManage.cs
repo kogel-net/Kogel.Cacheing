@@ -129,7 +129,7 @@ namespace Kogel.Cacheing.Memory
             {
                 var cacheItemKey = cacheItem.Key.ToString();
                 if (cacheItemKey.StartsWith($"{cacheKey}:"))
-                    data.Add(cacheItemKey, (T)cacheItem.Value);
+                    data.Add(cacheItemKey.Replace($"{cacheKey}:", ""), (T)cacheItem.Value);
             }
             return data;
         }

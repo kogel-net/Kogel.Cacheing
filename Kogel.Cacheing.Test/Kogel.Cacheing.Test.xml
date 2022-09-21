@@ -4,6 +4,11 @@
         <name>Kogel.Cacheing.Test</name>
     </assembly>
     <members>
+        <member name="T:Kogel.Cacheing.Test.Controllers.ValuesController">
+            <summary>
+            测试缓存
+            </summary>
+        </member>
         <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.Get(System.String)">
             <summary>
             获取string类型缓存
@@ -34,6 +39,13 @@
             <param name="cacheKey"></param>
             <param name="dataKey"></param>
             <param name="value"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.HashGetAll(System.String)">
+            <summary>
+            获取键下所有缓存
+            </summary>
+            <param name="cacheKey"></param>
             <returns></returns>
         </member>
         <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.Mutex(System.String)">
