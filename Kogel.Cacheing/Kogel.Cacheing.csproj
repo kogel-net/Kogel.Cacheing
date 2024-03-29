@@ -9,7 +9,7 @@
     <Company>Kogel.Cacheing</Company>
     <Product>Kogel.Cacheing</Product>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>0.0.0.4</Version>
+    <Version>0.0.0.5</Version>
     <PackageIcon>icon.jpg</PackageIcon>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net45|AnyCPU'">
