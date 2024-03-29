@@ -69,9 +69,9 @@
             <param name="cacheKey"></param>
             <returns></returns>
         </member>
-        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.PublishSubscribe">
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.Subscribe">
             <summary>
-            发布订阅
+            订阅
             </summary>
             <returns></returns>
         </member>

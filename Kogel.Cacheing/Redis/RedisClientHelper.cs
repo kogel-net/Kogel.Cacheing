@@ -11,7 +11,7 @@ namespace Kogel.Cacheing.Redis
     /// <summary>
     /// Redis操作
     /// </summary>
-   internal class RedisClientHelper
+    internal class RedisClientHelper
     {
         private int DbNum { get; }
 
@@ -53,12 +53,12 @@ namespace Kogel.Cacheing.Redis
         /// <param name="value">保存的值</param>
         /// <param name="expiry">过期时间</param>
         /// <returns></returns>
-        public dynamic Execute(string command, params object[] objs)            
+        public dynamic Execute(string command, params object[] objs)
         {
-            var r= Do(db => db.Execute(command, objs));
-         
+            var r = Do(db => db.Execute(command, objs));
+
             return r;
-            
+
         }
 
         #endregion 同步方法
@@ -73,7 +73,7 @@ namespace Kogel.Cacheing.Redis
         /// <returns></returns>
         public async Task<dynamic> ExecuteAsync(string script, params object[] objs)
         {
-            return await Do(db => db.ExecuteAsync(script, objs));            
+            return await Do(db => db.ExecuteAsync(script, objs));
         }
 
 
@@ -1128,6 +1128,12 @@ namespace Kogel.Cacheing.Redis
             return sub.Publish(channel, ConvertJson(msg));
         }
 
+        public Task<long> PublishAsync<T>(string channel, T msg)
+        {
+            ISubscriber sub = _conn.GetSubscriber();
+            return sub.PublishAsync(channel, ConvertJson(msg));
+        }
+
         /// <summary>
         /// Redis发布订阅  取消订阅
         /// </summary>
@@ -1155,7 +1161,7 @@ namespace Kogel.Cacheing.Redis
         {
             return GetDatabase().CreateTransaction();
 
-            
+
         }
 
         public IDatabase GetDatabase()
@@ -1189,7 +1195,7 @@ namespace Kogel.Cacheing.Redis
 
         private T Do<T>(Func<IDatabase, T> func)
         {
-           
+
             if (_conn != null)
             {
                 var database = _conn.GetDatabase(DbNum);
@@ -1197,7 +1203,7 @@ namespace Kogel.Cacheing.Redis
             }
             else
                 return default(T);
-          
+
         }
 
         private string ConvertJson<T>(T value)

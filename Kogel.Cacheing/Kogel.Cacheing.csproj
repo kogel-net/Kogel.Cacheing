@@ -5,7 +5,7 @@
     <Title>Kogel.Cacheing</Title>
     <Authors>Kogel</Authors>
 	<Description>内存缓存(memory cache);redis缓存;redis集群;redis哨兵</Description>
-    <TargetFrameworks>net45;net451;netstandard2.0;netcoreapp2.1;netcoreapp3.1;</TargetFrameworks>
+    <TargetFrameworks>net45;net451;netstandard2.0;</TargetFrameworks>
     <Company>Kogel.Cacheing</Company>
     <Product>Kogel.Cacheing</Product>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

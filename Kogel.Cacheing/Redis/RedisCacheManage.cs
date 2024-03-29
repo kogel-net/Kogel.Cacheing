@@ -512,6 +512,10 @@ namespace Kogel.Cacheing.Redis
             return GetPooledClientManager(channelId).Publish<T>(channelId, msg);
         }
 
+        public Task<long> PublishAsync<T>(string channelId, T msg)
+        {
+            return GetPooledClientManager(channelId).PublishAsync(channelId, msg);
+        }
 
         /// <summary>
         /// 订阅一个事件
@@ -520,6 +524,7 @@ namespace Kogel.Cacheing.Redis
         /// <param name="val"></param>
         /// <returns></returns>
         public void Subscribe<T>(string channelId, Action<T> handler)
+            where T : class
         {
             GetPooledClientManager(channelId).Subscribe<T>(channelId, (channel, value) => { handler(value); });
         }

@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 #if NETSTANDARD || NETCOREAPP
 namespace Kogel.Cacheing.Memory
 {
     using Microsoft.Extensions.Caching.Memory;
+    using Newtonsoft.Json;
     using Polly;
     using System.Collections;
+    using System.Collections.Concurrent;
     using System.Reflection;
     using System.Threading;
+    using System.Threading.Channels;
 
     public class MemoryCacheManage : ProviderManage, ICacheManager
     {
@@ -19,10 +21,9 @@ namespace Kogel.Cacheing.Memory
 
         private readonly static IMemoryCache _cache = new MemoryCache(new MemoryCacheOptions() { });
 
-        /// <summary>
-        /// 频道列表
-        /// </summary>
-        private readonly static Dictionary<string, Queue<object>> _channel = new Dictionary<string, Queue<object>>();
+        private readonly static ConcurrentDictionary<string, Channel<string>> _channels = new ConcurrentDictionary<string, Channel<string>>();
+
+        #endregion
 
         public dynamic Execute(string script, params object[] objs)
         {
@@ -178,8 +179,6 @@ namespace Kogel.Cacheing.Memory
             return StringSet($"{cacheKey}:{dataKey}", value);
         }
 
-        #endregion
-
         /// <summary>
         /// 缓存是否存在
         /// </summary>
@@ -314,14 +313,18 @@ namespace Kogel.Cacheing.Memory
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="channelId"></param>
-        /// <param name="msg"></param>
-        /// <returns></returns>
-        public long Publish<T>(string channelId, T msg) => PublishObj(channelId, msg);
+        private Channel<string> GetChannel(string channelId)
+        {
+            lock (_channels)
+            {
+                if (!_channels.TryGetValue(channelId, out Channel<string> channel))
+                {
+                    channel = Channel.CreateUnbounded<string>();
+                    _channels.TryAdd(channelId, channel);
+                }
+                return channel;
+            }
+        }
 
         /// <summary>
         /// 
@@ -330,25 +333,18 @@ namespace Kogel.Cacheing.Memory
         /// <param name="channelId"></param>
         /// <param name="msg"></param>
         /// <returns></returns>
-        public long PublishObj(string channelId, object msg)
+        public long Publish<T>(string channelId, T msg)
         {
-            lock (_channel)
-            {
-                Queue<object> queue;
-                if (_channel.ContainsKey(channelId))
-                {
-                    queue = _channel[channelId];
-                    queue.Enqueue(msg);
-                    _channel[channelId] = queue;
-                }
-                else
-                {
-                    queue = new Queue<object>();
-                    queue.Enqueue(msg);
-                    _channel.Add(channelId, queue);
-                }
-                return queue.LongCount();
-            }
+            var changel = GetChannel(channelId);
+            changel.Writer.TryWrite(msg is string ? msg.ToString() : JsonConvert.SerializeObject(msg));
+            return 1;
+        }
+
+        public async Task<long> PublishAsync<T>(string channelId, T msg)
+        {
+            var changel = GetChannel(channelId);
+            await changel.Writer.WriteAsync(msg is string ? msg.ToString() : JsonConvert.SerializeObject(msg));
+            return 1;
         }
 
         /// <summary>
@@ -542,29 +538,17 @@ namespace Kogel.Cacheing.Memory
         /// <param name="channelId"></param>
         /// <param name="handler"></param>
         /// <exception cref="NotImplementedException"></exception>
-        public void Subscribe(string channelId, Action<object> handler)
+        public void Subscribe<T>(string channelId, Action<T> handler)
+            where T : class
         {
-            Thread currentThread = Thread.CurrentThread;
             Task.Run(async () =>
             {
-                Thread _currentThread = currentThread;
+                var changel = GetChannel(channelId);
                 do
                 {
-                    if ((_currentThread.ThreadState & ThreadState.AbortRequested) != 0)
-                        break;
-                    if (_channel.ContainsKey(channelId))
-                    {
-                        lock (_channel)
-                        {
-                            Queue<object> queue = _channel[channelId];
-                            object msg = queue.Dequeue();
-                            if (msg != null)
-                            {
-                                handler(msg);
-                                _channel[channelId] = queue;
-                            }
-                        }
-                    }
+                    await changel.Reader.WaitToReadAsync();
+                    var msg = await changel.Reader.ReadAsync();
+                    handler.Invoke(typeof(T) == typeof(string) ? Convert.ChangeType(msg, typeof(T)) as T : JsonConvert.DeserializeObject<T>(msg));
                     await Task.Delay(100);
                 } while (true);
             });

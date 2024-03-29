@@ -169,13 +169,16 @@ namespace Kogel.Cacheing
         /// <returns></returns>
         long Publish<T>(string channelId, T msg);
 
+        Task<long> PublishAsync<T>(string channelId, T msg);
+
         /// <summary>
         /// 订阅一个事件
         /// </summary>
         /// <param name="cacheKey"></param>
         /// <param name="val"></param>
         /// <returns></returns>
-        void Subscribe(string channelId, Action<object> handler);
+        void Subscribe<T>(string channelId, Action<T> handler)
+            where T : class;
         #endregion
 
         #region Hash

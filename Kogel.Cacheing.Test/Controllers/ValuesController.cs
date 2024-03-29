@@ -116,26 +116,26 @@ namespace Kogel.Cacheing.Test.Controllers
         }
 
         /// <summary>
-        /// 发布订阅
+        /// 订阅
         /// </summary>
         /// <returns></returns>
         [HttpGet]
-        public async Task<ActionResult<object>> PublishSubscribe()
+        public async Task<ActionResult<object>> Subscribe()
         {
             string channelName = "channel1";
             //订阅频道
-            cacheManager.Subscribe(channelName, (str) =>
+            cacheManager.Subscribe<string>(channelName, (str) =>
             {
                 Console.WriteLine($"test1:{str}");
             });
-            cacheManager.Subscribe(channelName, (str) =>
+            cacheManager.Subscribe<string>(channelName, (str) =>
             {
                 Console.WriteLine($"test2:{str}");
             });
             //发布频道
             cacheManager.Publish(channelName, "aaa");
             cacheManager.Publish(channelName, "bbb");
-            await Task.Delay(10000);
+            //await Task.Delay(10000);
             return "测试发布订阅";
         }
 
