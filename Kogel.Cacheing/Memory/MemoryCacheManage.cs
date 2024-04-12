@@ -19,9 +19,9 @@ namespace Kogel.Cacheing.Memory
     {
         #region 全局变量
 
-        private readonly static IMemoryCache _cache = new MemoryCache(new MemoryCacheOptions() 
-        { 
-            ExpirationScanFrequency = TimeSpan.FromSeconds(1) 
+        private readonly static IMemoryCache _cache = new MemoryCache(new MemoryCacheOptions()
+        {
+            ExpirationScanFrequency = TimeSpan.FromSeconds(1)
         });
 
         private readonly static ConcurrentDictionary<string, Channel<string>> _channels = new ConcurrentDictionary<string, Channel<string>>();
@@ -345,7 +345,7 @@ namespace Kogel.Cacheing.Memory
                 }
                 else
                 {
-                    return new MutexDisposable(this, cacheKey);
+                    return new MutexDisposable(this, cacheKey, true, dataKeys);
                 }
             }
             while (retryTimes > 0);
