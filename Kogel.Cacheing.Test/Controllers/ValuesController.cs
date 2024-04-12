@@ -86,10 +86,26 @@ namespace Kogel.Cacheing.Test.Controllers
         [HttpGet]
         public async Task<ActionResult<object>> Mutex(string cacheKey = "test_cache_mutex")
         {
-            using (var mutex = cacheManager.LockMutex(cacheKey, TimeSpan.FromSeconds(10)))
+            using (var mutex = cacheManager.LockMutex(cacheKey, TimeSpan.FromSeconds(5)))
             {
-                await Task.Delay(10000);
+                await Task.Delay(1000);
                 return "互斥锁xxx";
+            }
+        }
+
+        /// <summary>
+        /// 哈希互斥锁
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKeys"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public async Task<ActionResult<object>> HMutex(string cacheKey, List<string> dataKeys)
+        {
+            using (var mutex = cacheManager.HLockMutex(cacheKey, dataKeys, TimeSpan.FromSeconds(5)))
+            {
+                await Task.Delay(1000);
+                return "哈希互斥锁xxx";
             }
         }
 
@@ -99,7 +115,7 @@ namespace Kogel.Cacheing.Test.Controllers
         /// <param name="cacheKey"></param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<ActionResult<object>> StringIncrement(string cacheKey= "test_cache_rement")
+        public ActionResult<object> StringIncrement(string cacheKey = "test_cache_rement")
         {
             return cacheManager.StringIncrement(cacheKey, 1);
         }
@@ -110,7 +126,7 @@ namespace Kogel.Cacheing.Test.Controllers
         /// <param name="cacheKey"></param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<ActionResult<object>> StringDecrement(string cacheKey = "test_cache_rement")
+        public ActionResult<object> StringDecrement(string cacheKey = "test_cache_rement")
         {
             return cacheManager.StringDecrement(cacheKey, 1);
         }

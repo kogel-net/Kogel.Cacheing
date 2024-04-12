@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Reflection.Emit;
+using System.Data;
 
 namespace Kogel.Cacheing.Redis
 {
@@ -160,6 +161,12 @@ namespace Kogel.Cacheing.Redis
             key = AddSysCustomKey(key);
 
             return Do(db => { return ConvertObj<T>(db.StringGet(key)); });
+        }
+
+        public bool StringDelete(string key)
+        {
+            key = AddSysCustomKey(key);
+            return Do(db => db.KeyDelete(key));
         }
 
         /// <summary>
@@ -1042,7 +1049,6 @@ namespace Kogel.Cacheing.Redis
         /// 设置Key的时间
         /// </summary>
         /// <param name="key">redis key</param>
-        /// <param name="expiry"></param>
         /// <returns></returns>
         public string LockQuery(string key)
         {
@@ -1054,7 +1060,7 @@ namespace Kogel.Cacheing.Redis
         /// 设置Key的时间
         /// </summary>
         /// <param name="key">redis key</param>
-        /// <param name="expiry"></param>
+        /// <param name="lockValue"></param>
         /// <returns></returns>
         public bool LockRelease(string key, string lockValue)
         {

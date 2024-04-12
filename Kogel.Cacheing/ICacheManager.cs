@@ -72,6 +72,7 @@ namespace Kogel.Cacheing
         /// <param name="expiresMinute"></param>
         bool StringSet<T>(string cacheKey, T cacheValue, TimeSpan cacheOutTime);
 
+        bool StringDelete(string cacheKey);
 
         /// <summary>
         /// 设置缓存
@@ -143,7 +144,7 @@ namespace Kogel.Cacheing
         /// 设置互斥锁
         /// </summary>
         /// <param name="cacheKey"></param>
-        /// <param name="LockOutTime">锁超时时间</param>
+        /// <param name="lockOutTime">锁超时时间</param>
         /// <param name="retryAttemptMillseconds">尝试间隔时间</param>
         /// <param name="retryTimes">尝试次数</param>
         /// <returns></returns>
@@ -158,6 +159,14 @@ namespace Kogel.Cacheing
         /// <param name="cacheKey"></param>
         /// <returns></returns>
         void ExitMutex(string cacheKey);
+
+        IMutexDisposable HLockMutex(string cacheKey,
+           List<string> dataKeys,
+           TimeSpan lockOutTime,
+           int retryAttemptMillseconds = 300,
+           int retryTimes = 100);
+
+        void HExitMutex(string cacheKey, List<string> dataKeys);
         #endregion
 
         #region Publish&Subscrbe
@@ -228,6 +237,8 @@ namespace Kogel.Cacheing
         /// <param name="value"></param>
         /// <returns></returns>
         bool HashSet<T>(string cacheKey, string dataKey, T value);
+
+        bool HashDelete(string cacheKey, string dataKey);
         #endregion
 
         #region List
@@ -351,17 +362,24 @@ namespace Kogel.Cacheing
     /// </summary>
     internal class MutexDisposable : IMutexDisposable
     {
-        private readonly ICacheManager cacheManager;
-        private readonly string cacheKey;
-        public MutexDisposable(ICacheManager cacheManager, string cacheKey)
+        private readonly ICacheManager _cacheManager;
+        private readonly string _cacheKey;
+        private readonly bool _isHLockMutex;
+        private readonly List<string> _dataKeys;
+        public MutexDisposable(ICacheManager cacheManager, string cacheKey, bool isHLockMutex = false, List<string> dataKeys = null)
         {
-            this.cacheManager = cacheManager;
-            this.cacheKey = cacheKey;
+            _cacheManager = cacheManager;
+            _cacheKey = cacheKey;
+            _isHLockMutex = isHLockMutex;
+            _dataKeys = dataKeys;
         }
 
         public void Dispose()
         {
-            cacheManager.ExitMutex(cacheKey);
+            if (!_isHLockMutex)
+                _cacheManager.ExitMutex(_cacheKey);
+            else
+                _cacheManager.HExitMutex(_cacheKey, _dataKeys);
         }
 
         /// <summary>

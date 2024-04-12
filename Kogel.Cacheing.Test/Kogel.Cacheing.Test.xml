@@ -55,6 +55,14 @@
             <param name="cacheKey">缓存键</param>
             <returns></returns>
         </member>
+        <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.HMutex(System.String,System.Collections.Generic.List{System.String})">
+            <summary>
+            哈希互斥锁
+            </summary>
+            <param name="cacheKey"></param>
+            <param name="dataKeys"></param>
+            <returns></returns>
+        </member>
         <member name="M:Kogel.Cacheing.Test.Controllers.ValuesController.StringIncrement(System.String)">
             <summary>
             自增

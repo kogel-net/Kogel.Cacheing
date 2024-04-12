@@ -19,7 +19,10 @@ namespace Kogel.Cacheing.Memory
     {
         #region 全局变量
 
-        private readonly static IMemoryCache _cache = new MemoryCache(new MemoryCacheOptions() { });
+        private readonly static IMemoryCache _cache = new MemoryCache(new MemoryCacheOptions() 
+        { 
+            ExpirationScanFrequency = TimeSpan.FromSeconds(1) 
+        });
 
         private readonly static ConcurrentDictionary<string, Channel<string>> _channels = new ConcurrentDictionary<string, Channel<string>>();
 
@@ -131,7 +134,19 @@ namespace Kogel.Cacheing.Memory
             {
                 var cacheItemKey = cacheItem.Key.ToString();
                 if (cacheItemKey.StartsWith($"{cacheKey}:"))
-                    data.Add(cacheItemKey.Replace($"{cacheKey}:", ""), (T)cacheItem.Value);
+                {
+                    T cacheItemValue;
+                    var cacheItemType = cacheItem.Value.GetType();
+                    if (cacheItemType.FullName.Contains("Microsoft.Extensions.Caching.Memory.CacheEntry"))
+                    {
+                        cacheItemValue = (T)cacheItemType.GetProperty("Value").GetValue(cacheItem.Value);
+                    }
+                    else
+                    {
+                        cacheItemValue = (T)cacheItem.Value;
+                    }
+                    data.Add(cacheItemKey.Replace($"{cacheKey}:", ""), cacheItemValue);
+                }
             }
             return data;
         }
@@ -177,6 +192,22 @@ namespace Kogel.Cacheing.Memory
         public bool HashSet<T>(string cacheKey, string dataKey, T value)
         {
             return StringSet($"{cacheKey}:{dataKey}", value);
+        }
+
+        public bool HashSet<T>(string cacheKey, string dataKey, T value, TimeSpan cacheOutTime)
+        {
+            return StringSet($"{cacheKey}:{dataKey}", value, cacheOutTime);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="dataKey"></param>
+        /// <returns></returns>
+        public bool HashDelete(string cacheKey, string dataKey)
+        {
+            return StringDelete($"{cacheKey}:{dataKey}");
         }
 
         /// <summary>
@@ -268,6 +299,64 @@ namespace Kogel.Cacheing.Memory
             while (retryTimes > 0);
             //超时异常
             throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+        }
+
+        public bool HLockTake(string cacheKey, List<string> dataKeys, TimeSpan expire)
+        {
+            using (LockMutex($"{cacheKey}_HLockTake", expire))
+            {
+                string hCacheKey = $"{cacheKey}_LockHash";
+                var cacheDataKeys = HashGetAll<string>(hCacheKey);
+                if ((cacheDataKeys is null || cacheDataKeys.Count == 0) && !cacheDataKeys.Any(x => dataKeys.Contains(x.Key)))
+                {
+                    dataKeys.ForEach(x => HashSet(hCacheKey, x, "", expire));
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        public IMutexDisposable HLockMutex(string cacheKey,
+           List<string> dataKeys,
+           TimeSpan lockOutTime,
+           int retryAttemptMillseconds = 300,
+           int retryTimes = 100)
+        {
+            do
+            {
+                if (!HLockTake(cacheKey, dataKeys, lockOutTime))
+                {
+                    retryTimes--;
+                    if (retryTimes < 0)
+                    {
+                        //超时异常
+                        throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+                    }
+
+                    if (retryAttemptMillseconds > 0)
+                    {
+                        Console.WriteLine($"Wait Lock {cacheKey} to {retryAttemptMillseconds} millseconds");
+                        //获取锁失败则进行锁等待
+                        Thread.Sleep(retryAttemptMillseconds);
+                    }
+                }
+                else
+                {
+                    return new MutexDisposable(this, cacheKey);
+                }
+            }
+            while (retryTimes > 0);
+            //超时异常
+            throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+        }
+
+        public void HExitMutex(string cacheKey, List<string> dataKeys)
+        {
+            string hCacheKey = $"{cacheKey}_LockHash";
+            dataKeys.ForEach(x => HashDelete(hCacheKey, x));
         }
 
         /// <summary>
@@ -503,6 +592,12 @@ namespace Kogel.Cacheing.Memory
             {
                 AbsoluteExpiration = DateTimeOffset.Now.AddSeconds(cacheOutTime.TotalSeconds)
             });
+            return true;
+        }
+
+        public bool StringDelete(string cacheKey)
+        {
+            _cache.Remove(cacheKey);
             return true;
         }
 

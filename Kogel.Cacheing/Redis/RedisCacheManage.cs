@@ -7,6 +7,7 @@ using System.Configuration;
 using StackExchange.Redis;
 using System.Threading;
 using Polly;
+using Newtonsoft.Json.Linq;
 
 namespace Kogel.Cacheing.Redis
 {
@@ -429,6 +430,10 @@ namespace Kogel.Cacheing.Redis
             return false;
         }
 
+        public bool StringDelete(string cacheKey)
+        {
+            return GetPooledClientManager(cacheKey).StringDelete(cacheKey);
+        }
 
         /// <summary>
         /// 设置缓存，可以加缓存过期时间
@@ -589,6 +594,11 @@ namespace Kogel.Cacheing.Redis
             return GetPooledClientManager(cacheKey).HashSet(cacheKey, dataKey, value);
         }
 
+        public bool HashDelete(string cacheKey, string dataKey)
+        {
+            return GetPooledClientManager(cacheKey).HashDelete(cacheKey, dataKey);
+        }
+
         //public bool HashSet<T>(string dataKey, T data, int expireMinutes = 30)
         //{
         //    string cacheKey = dataKey;
@@ -675,6 +685,73 @@ namespace Kogel.Cacheing.Redis
             {
                 LockRelease(cacheKey, "");
             });
+        }
+
+        public bool HLockTake(string cacheKey, List<string> dataKeys, TimeSpan expire)
+        {
+            using (LockMutex($"{cacheKey}_HLockTake", expire))
+            {
+                string hCacheKey = $"{cacheKey}_LockHash";
+                var cacheDataKeys = HashGetAll<string>(hCacheKey);
+                if ((cacheDataKeys is null || cacheDataKeys.Count == 0) && !cacheDataKeys.Any(x => dataKeys.Contains(x.Key)))
+                {
+                    dataKeys.ForEach(x => HashSet(hCacheKey, x, ""));
+                    ExpireEntryAt(hCacheKey, expire);
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 设置互斥锁
+        /// </summary>
+        /// <param name="cacheKey"></param>
+        /// <param name="lockOutTime">锁超时时间</param>
+        /// <param name="retryAttemptMillseconds">尝试间隔时间</param>
+        /// <param name="retryTimes">尝试次数</param>
+        /// <returns></returns>
+        public IMutexDisposable HLockMutex(string cacheKey,
+            List<string> dataKeys,
+            TimeSpan lockOutTime,
+            int retryAttemptMillseconds = 300,
+            int retryTimes = 100)
+        {
+            do
+            {
+                if (!HLockTake(cacheKey, dataKeys, lockOutTime))
+                {
+                    retryTimes--;
+                    if (retryTimes < 0)
+                    {
+                        //超时异常
+                        throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+                    }
+
+                    if (retryAttemptMillseconds > 0)
+                    {
+                        Console.WriteLine($"Wait Lock {cacheKey} to {retryAttemptMillseconds} millseconds");
+                        //获取锁失败则进行锁等待
+                        Thread.Sleep(retryAttemptMillseconds);
+                    }
+                }
+                else
+                {
+                    return new MutexDisposable(this, cacheKey, true, dataKeys);
+                }
+            }
+            while (retryTimes > 0);
+            //超时异常
+            throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+        }
+
+        public void HExitMutex(string cacheKey, List<string> dataKeys)
+        {
+            string hCacheKey = $"{cacheKey}_LockHash";
+            dataKeys.ForEach(x => HashDelete(hCacheKey, x));
         }
 
         #endregion Lock
