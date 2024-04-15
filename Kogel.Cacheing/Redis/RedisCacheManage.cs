@@ -1,23 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Configuration;
 using StackExchange.Redis;
 using System.Threading;
 using Polly;
-using Newtonsoft.Json.Linq;
+using Kogel.Cacheing.LoadBalancers;
+using Kogel.Cacheing.KetamaHash;
 
 namespace Kogel.Cacheing.Redis
 {
 
     public class RedisCacheManage : ProviderManage, ICacheManager
     {
-        #region private
-
-        #region 全局变量
-        private static object _syncCreateInstance = new Object();
+        private static object _syncCreateInstance = new object();
 
         private static object _syncCreateClient = new object();
 
@@ -25,38 +21,27 @@ namespace Kogel.Cacheing.Redis
 
         private static string _KeyPrefix = "";
 
-
-        //虚拟节点数量
         private static readonly int _VIRTUAL_NODE_COUNT = 1024;
 
-        //Redis集群分片存储定位器
-        private static KetamaHash.KetamaNodeLocator _Locator;
+        private static KetamaNodeLocator _Locator;
 
         private static Dictionary<string, ConfigurationOptions> _clusterConfigOptions = new Dictionary<string, ConfigurationOptions>();
 
-        private static Dictionary<string, Dictionary<int, LoadBalancers.ILoadBalancer<RedisClientHelper>>> _nodeClients = new Dictionary<string, Dictionary<int, LoadBalancers.ILoadBalancer<RedisClientHelper>>>();
-        #endregion
+        private static Dictionary<string, Dictionary<int, ILoadBalancer<RedisClientHelper>>> _nodeClients = new Dictionary<string, Dictionary<int, ILoadBalancer<RedisClientHelper>>>();
 
-        #region 实例变量
-        private readonly int _DbNum = 0;
+        private readonly int _DbNum;
+
         private readonly int _NumberOfConnections = 10;
-
-        #endregion
 
         private RedisCacheManage(int DbNum = 0, int NumberOfConnections = 10)
         {
-            this._DbNum = DbNum;
-            this._NumberOfConnections = NumberOfConnections;
-
+            _DbNum = DbNum;
+            _NumberOfConnections = NumberOfConnections;
         }
 
-        /// <summary>
-        /// 创建链接池管理对象
-        /// </summary>
         public static RedisCacheManage Create(RedisCacheConfig config)
         {
             ThreadPool.SetMinThreads(200, 200);
-
             if (string.IsNullOrEmpty(config.KeyPrefix))
             {
                 _KeyPrefix = string.Empty;
@@ -64,8 +49,8 @@ namespace Kogel.Cacheing.Redis
             else
             {
                 _KeyPrefix = config.KeyPrefix + ":";
-
             }
+
             if (_Locator == null)
             {
                 lock (_syncCreateInstance)
@@ -74,198 +59,149 @@ namespace Kogel.Cacheing.Redis
                     {
                         if (string.IsNullOrEmpty(config.SentineList) || !_supportSentinal)
                         {
-                            //Redis服务器相关配置
                             string writeServerList = config.WriteServerList;
                             string readServerList = config.ReadServerList;
-                            var writeServerArray = RedisCacheConfigHelper.SplitString(writeServerList, ",").ToList();
-                            var readServerArray = RedisCacheConfigHelper.SplitString(readServerList, ",").ToList();
-                            var Nodes = new List<string>();
-
-                            //只有一个写,多个读的情况
-                            /*
-                             * Redis.ReadServerList	    192.168.100.51:16378,192.168.100.51:26378
-                               Redis.WriteServerList	192.168.100.51:6378
-                             */
-                            if (writeServerArray.Count == 1)
+                            List<string> list = RedisCacheConfigHelper.SplitString(writeServerList, ",").ToList();
+                            List<string> second = RedisCacheConfigHelper.SplitString(readServerList, ",").ToList();
+                            List<string> list2 = new List<string>();
+                            if (list.Count == 1)
                             {
-                                var writeServer = writeServerArray[0];
-                                var NodeName = writeServerArray[0];
-
-                                if (!_clusterConfigOptions.ContainsKey(NodeName))
+                                string key = list[0];
+                                string text = list[0];
+                                if (!_clusterConfigOptions.ContainsKey(text))
                                 {
-                                    ConfigurationOptions configOption = new ConfigurationOptions();
-                                    configOption.ServiceName = NodeName;
-                                    configOption.Password = config.Password;
-                                    configOption.AbortOnConnectFail = false;
-                                    configOption.DefaultDatabase = config.DBNum;
-                                    configOption.Ssl = config.Ssl;
-
-                                    foreach (var ipAndPort in writeServerArray.Union(readServerArray))
+                                    ConfigurationOptions configurationOptions = new ConfigurationOptions();
+                                    configurationOptions.ServiceName = text;
+                                    configurationOptions.Password = config.Password;
+                                    configurationOptions.AbortOnConnectFail = false;
+                                    configurationOptions.DefaultDatabase = config.DBNum;
+                                    configurationOptions.Ssl = config.Ssl;
+                                    foreach (string item in list.Union(second))
                                     {
-                                        configOption.EndPoints.Add(ipAndPort);
+                                        configurationOptions.EndPoints.Add(item);
                                     }
 
-                                    _clusterConfigOptions.Add(writeServer, configOption);
+                                    _clusterConfigOptions.Add(key, configurationOptions);
                                 }
 
-                                Nodes.Add(NodeName);
+                                list2.Add(text);
                             }
-                            /*
-                             * 多个写和多个读
-                              Redis.ReadServerList	    master-6378@192.168.100.51:16378,master-6379@192.168.100.51:16379,master-6380@192.168.100.51:16380,master-6381@192.168.100.51:16381,master-6382@192.168.100.51:16382,master-6378@192.168.100.51:26378,master-6379@192.168.100.51:26379,master-6380@192.168.100.51:26380,master-6381@192.168.100.51:26381,master-6382@192.168.100.51:26382
-                              Redis.WriteServerList	    master-6378@192.168.100.51:6378,master-6379@192.168.100.51:6379,master-6380@192.168.100.51:6380,master-6381@192.168.100.51:6381,master-6382@192.168.100.51:6382         
-                            */
                             else
                             {
-                                for (int i = 0; i < writeServerArray.Count; i++)
+                                for (int i = 0; i < list.Count; i++)
                                 {
-                                    //存在多个Master服务器的时候
-                                    if (writeServerArray[i].IndexOf("@") > 0)
+                                    if (list[i].IndexOf("@") > 0)
                                     {
-                                        //集群名称()
-                                        var NodeName = RedisCacheConfigHelper.GetServerClusterName(writeServerArray[i]);
-                                        //主服务器名称
-                                        var masterServer = RedisCacheConfigHelper.GetServerHost(writeServerArray[i]);
-
-                                        //主服务器列表
-                                        var masterServerIPAndPortArray = RedisCacheConfigHelper.GetServerList(config.WriteServerList, NodeName);
-                                        //从服务器列表
-                                        var slaveServerIPAndPortArray = RedisCacheConfigHelper.GetServerList(config.ReadServerList, NodeName);
-
-                                        //当前集群的配置不存在
-                                        if (!_clusterConfigOptions.ContainsKey(NodeName))
+                                        string serverClusterName = RedisCacheConfigHelper.GetServerClusterName(list[i]);
+                                        RedisCacheConfigHelper.GetServerHost(list[i]);
+                                        List<string> serverList = RedisCacheConfigHelper.GetServerList(config.WriteServerList, serverClusterName);
+                                        List<string> serverList2 = RedisCacheConfigHelper.GetServerList(config.ReadServerList, serverClusterName);
+                                        if (!_clusterConfigOptions.ContainsKey(serverClusterName))
                                         {
-                                            ConfigurationOptions configOption = new ConfigurationOptions();
-                                            configOption.ServiceName = NodeName;
-                                            configOption.Password = config.Password;
-                                            configOption.AbortOnConnectFail = false;
-                                            configOption.DefaultDatabase = config.DBNum;
-                                            configOption.Ssl = config.Ssl;
-                                            configOption.ConnectTimeout = 15000;
-                                            configOption.SyncTimeout = 5000;
-                                            configOption.ResponseTimeout = 15000;
-
-                                            foreach (var ipAndPort in masterServerIPAndPortArray.Union(slaveServerIPAndPortArray).Distinct())
+                                            ConfigurationOptions configurationOptions2 = new ConfigurationOptions();
+                                            configurationOptions2.ServiceName = serverClusterName;
+                                            configurationOptions2.Password = config.Password;
+                                            configurationOptions2.AbortOnConnectFail = false;
+                                            configurationOptions2.DefaultDatabase = config.DBNum;
+                                            configurationOptions2.Ssl = config.Ssl;
+                                            configurationOptions2.ConnectTimeout = 15000;
+                                            configurationOptions2.SyncTimeout = 5000;
+                                            configurationOptions2.ResponseTimeout = 15000;
+                                            foreach (string item2 in serverList.Union(serverList2).Distinct())
                                             {
-                                                configOption.EndPoints.Add(RedisCacheConfigHelper.GetIP(ipAndPort), RedisCacheConfigHelper.GetPort(ipAndPort));
+                                                configurationOptions2.EndPoints.Add(RedisCacheConfigHelper.GetIP(item2), RedisCacheConfigHelper.GetPort(item2));
                                             }
 
-                                            _clusterConfigOptions.Add(NodeName, configOption);
+                                            _clusterConfigOptions.Add(serverClusterName, configurationOptions2);
                                         }
 
-                                        Nodes.Add(NodeName);
+                                        list2.Add(serverClusterName);
                                     }
                                     else
                                     {
-                                        //192.168.10.100:6379
-                                        var NodeName = writeServerArray[i];
-
-                                        if (!_clusterConfigOptions.ContainsKey(NodeName))
+                                        string text2 = list[i];
+                                        if (!_clusterConfigOptions.ContainsKey(text2))
                                         {
-
-                                            ConfigurationOptions configOption = new ConfigurationOptions();
-                                            configOption.ServiceName = NodeName;
-                                            configOption.Password = config.Password;
-                                            configOption.AbortOnConnectFail = false;
-                                            configOption.DefaultDatabase = config.DBNum;
-                                            configOption.Ssl = config.Ssl;
-                                            configOption.ConnectTimeout = 15000;
-                                            configOption.SyncTimeout = 5000;
-                                            configOption.ResponseTimeout = 15000;
-
-
-                                            configOption.EndPoints.Add(RedisCacheConfigHelper.GetIP(NodeName), RedisCacheConfigHelper.GetPort(NodeName));
-                                            _clusterConfigOptions.Add(NodeName, configOption);
+                                            ConfigurationOptions configurationOptions3 = new ConfigurationOptions();
+                                            configurationOptions3.ServiceName = text2;
+                                            configurationOptions3.Password = config.Password;
+                                            configurationOptions3.AbortOnConnectFail = false;
+                                            configurationOptions3.DefaultDatabase = config.DBNum;
+                                            configurationOptions3.Ssl = config.Ssl;
+                                            configurationOptions3.ConnectTimeout = 15000;
+                                            configurationOptions3.SyncTimeout = 5000;
+                                            configurationOptions3.ResponseTimeout = 15000;
+                                            configurationOptions3.EndPoints.Add(RedisCacheConfigHelper.GetIP(text2), RedisCacheConfigHelper.GetPort(text2));
+                                            _clusterConfigOptions.Add(text2, configurationOptions3);
                                         }
 
-                                        Nodes.Add(NodeName);
+                                        list2.Add(text2);
                                     }
                                 }
                             }
 
-                            _Locator = new KetamaHash.KetamaNodeLocator(Nodes, _VIRTUAL_NODE_COUNT);
+                            _Locator = new KetamaNodeLocator(list2, _VIRTUAL_NODE_COUNT);
                         }
                         else
                         {
-                            List<string> sentinelMasterNameList = new List<string>();
-                            List<string> sentinelServerHostList = new List<string>();
-                            var SentineList = RedisCacheConfigHelper.SplitString(config.SentineList, ",").ToList();
-                            for (int i = 0; i < SentineList.Count; i++)
+                            List<string> list3 = new List<string>();
+                            List<string> list4 = new List<string>();
+                            List<string> list5 = RedisCacheConfigHelper.SplitString(config.SentineList, ",").ToList();
+                            for (int j = 0; j < list5.Count; j++)
                             {
-                                var args = RedisCacheConfigHelper.SplitString(SentineList[i], "@").ToList();
-
-                                var ServiceName = args[0];
-                                var hostName = args[1];
-                                var endPoint = RedisCacheConfigHelper.SplitString(hostName, ":").ToList();
-                                var ip = endPoint[0]; //IP
-                                var port = int.Parse(endPoint[1]); //端口 
-
-                                sentinelMasterNameList.Add(ServiceName);
-                                sentinelServerHostList.Add(hostName);
-                                if (!_clusterConfigOptions.ContainsKey(hostName))
+                                List<string> list6 = RedisCacheConfigHelper.SplitString(list5[j], "@").ToList();
+                                string text3 = list6[0];
+                                string text4 = list6[1];
+                                List<string> list7 = RedisCacheConfigHelper.SplitString(text4, ":").ToList();
+                                string host = list7[0];
+                                int port = int.Parse(list7[1]);
+                                list3.Add(text3);
+                                list4.Add(text4);
+                                if (!_clusterConfigOptions.ContainsKey(text4))
                                 {
-                                    //连接sentinel服务器
-                                    ConfigurationOptions sentinelConfig = new ConfigurationOptions();
-                                    sentinelConfig.ServiceName = ServiceName;
-                                    sentinelConfig.EndPoints.Add(ip, port);
-                                    sentinelConfig.AbortOnConnectFail = false;
-                                    sentinelConfig.DefaultDatabase = config.DBNum;
-                                    sentinelConfig.TieBreaker = ""; //这行在sentinel模式必须加上
-                                    sentinelConfig.CommandMap = CommandMap.Sentinel;
-                                    sentinelConfig.DefaultVersion = new Version(3, 0);
-                                    _clusterConfigOptions[hostName] = sentinelConfig;
+                                    ConfigurationOptions configurationOptions4 = new ConfigurationOptions();
+                                    configurationOptions4.ServiceName = text3;
+                                    configurationOptions4.EndPoints.Add(host, port);
+                                    configurationOptions4.AbortOnConnectFail = false;
+                                    configurationOptions4.DefaultDatabase = config.DBNum;
+                                    configurationOptions4.TieBreaker = "";
+                                    configurationOptions4.CommandMap = CommandMap.Sentinel;
+                                    configurationOptions4.DefaultVersion = new Version(3, 0);
+                                    _clusterConfigOptions[text4] = configurationOptions4;
                                 }
                                 else
                                 {
-                                    ConfigurationOptions sentinelConfig = _clusterConfigOptions[hostName] as ConfigurationOptions;
-                                    sentinelConfig.EndPoints.Add(ip, port);
-                                    _clusterConfigOptions[hostName] = sentinelConfig;
+                                    ConfigurationOptions configurationOptions5 = _clusterConfigOptions[text4];
+                                    configurationOptions5.EndPoints.Add(host, port);
+                                    _clusterConfigOptions[text4] = configurationOptions5;
                                 }
                             }
 
-                            //初始化Reds分片定位器
-                            _Locator = new KetamaHash.KetamaNodeLocator(sentinelServerHostList, _VIRTUAL_NODE_COUNT);
+                            _Locator = new KetamaNodeLocator(list4, _VIRTUAL_NODE_COUNT);
                         }
                     }
                 }
             }
 
-
             return new RedisCacheManage(config.DBNum, config.NumberOfConnections);
         }
 
-        #endregion
-
-        #region 辅助方法
-
-        /// <summary>
-        /// 根据缓存名称定位需要访问的缓存服务器
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <returns></returns>
         private RedisClientHelper GetPooledClientManager(string cacheKey)
         {
-            var nodeName = _Locator.GetPrimary(_KeyPrefix + cacheKey);
-
-            if (_nodeClients.ContainsKey(nodeName))
+            string primary = _Locator.GetPrimary(_KeyPrefix + cacheKey);
+            if (_nodeClients.ContainsKey(primary))
             {
-                var dbs = _nodeClients[nodeName];
+                Dictionary<int, ILoadBalancer<RedisClientHelper>> dictionary = _nodeClients[primary];
+                if (dictionary.ContainsKey(_DbNum))
+                {
+                    return dictionary[_DbNum].Lease();
+                }
 
-                if (dbs.ContainsKey(_DbNum))
-                {
-                    return dbs[_DbNum].Lease();
-                }
-                else
-                {
-                    return GetClientHelper(nodeName);
-                }
+                return GetClientHelper(primary);
             }
-            else
-            {
-                return GetClientHelper(nodeName);
-            }
+
+            return GetClientHelper(primary);
         }
-
 
         private RedisClientHelper GetClientHelper(string nodeName)
         {
@@ -273,160 +209,106 @@ namespace Kogel.Cacheing.Redis
             {
                 if (_nodeClients.ContainsKey(nodeName))
                 {
-                    var dbs = _nodeClients[nodeName];
-
-                    if (!dbs.ContainsKey(_DbNum))
+                    Dictionary<int, ILoadBalancer<RedisClientHelper>> dictionary = _nodeClients[nodeName];
+                    if (!dictionary.ContainsKey(_DbNum))
                     {
-                        dbs[_DbNum] = GetConnectionLoadBalancer(nodeName);
+                        dictionary[_DbNum] = GetConnectionLoadBalancer(nodeName);
                     }
                 }
                 else
                 {
-                    var node = new Dictionary<int, LoadBalancers.ILoadBalancer<RedisClientHelper>>();
-                    node[_DbNum] = GetConnectionLoadBalancer(nodeName);
-                    _nodeClients[nodeName] = node;
+                    Dictionary<int, ILoadBalancer<RedisClientHelper>> dictionary2 = new Dictionary<int, ILoadBalancer<RedisClientHelper>>();
+                    dictionary2[_DbNum] = GetConnectionLoadBalancer(nodeName);
+                    _nodeClients[nodeName] = dictionary2;
                 }
 
                 return _nodeClients[nodeName][_DbNum].Lease();
             }
         }
 
-        private LoadBalancers.ILoadBalancer<RedisClientHelper> GetConnectionLoadBalancer(string nodeName)
+        private ILoadBalancer<RedisClientHelper> GetConnectionLoadBalancer(string nodeName)
         {
-            var factory = new LoadBalancers.DefaultLoadBalancerFactory<RedisClientHelper>();
-
-            return factory.Get(() =>
+            return new DefaultLoadBalancerFactory<RedisClientHelper>().Get(delegate
             {
-                var clients = new List<RedisClientHelper>();
-                for (int i = 0; i < this._NumberOfConnections; i++)
+                List<RedisClientHelper> list = new List<RedisClientHelper>();
+                for (int i = 0; i < _NumberOfConnections; i++)
                 {
-                    clients.Add(new RedisClientHelper(_DbNum, _clusterConfigOptions[nodeName], _KeyPrefix));
+                    list.Add(new RedisClientHelper(_DbNum, _clusterConfigOptions[nodeName], _KeyPrefix));
                 }
-                return clients;
+
+                return list;
             });
         }
 
-        #endregion
-
-        #region 接口实现
-
-        /// <summary>
-        /// 缓存是否存在
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <returns></returns>
         public bool KeyExists(string cacheKey)
         {
             if (!string.IsNullOrEmpty(cacheKey))
             {
-                var value = GetPooledClientManager(cacheKey).StringGet(cacheKey);
-
-                return value != null ? true : false;
+                return GetPooledClientManager(cacheKey).StringGet(cacheKey) != null;
             }
+
             return false;
         }
 
-
-        /// <summary>
-        /// 移除缓存
-        /// </summary>
-        /// <param name="cacheKey"></param>
         public bool RemoveCache(string cacheKey)
         {
             return GetPooledClientManager(cacheKey).KeyDelete(cacheKey);
         }
 
-        /// <summary>
-        /// 设置缓存的过期时间
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="cacheOutTime"></param>
         public bool ExpireEntryAt(string cacheKey, TimeSpan cacheOutTime)
         {
             return GetPooledClientManager(cacheKey).KeyExpire(cacheKey, cacheOutTime);
         }
 
-        /// <summary>
-        /// 获取缓存
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <returns></returns>
         public T StringGet<T>(string cacheKey)
         {
-            T cacheData = default(T);
+            T result = default(T);
             if (!string.IsNullOrEmpty(cacheKey))
             {
-                cacheData = GetPooledClientManager(cacheKey).StringGet<T>(cacheKey);
+                return GetPooledClientManager(cacheKey).StringGet<T>(cacheKey);
             }
-            return cacheData;
+
+            return result;
         }
 
-        /// <summary>
-        /// 获取缓存
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <returns></returns>
         public async Task<T> StringGetAsync<T>(string cacheKey)
         {
-            T cacheData = default(T);
+            T result = default(T);
             if (!string.IsNullOrEmpty(cacheKey))
             {
                 return await GetPooledClientManager(cacheKey).StringGetAsync<T>(cacheKey);
             }
-            return cacheData;
+
+            return result;
         }
 
-        /// <summary>
-        /// 设置缓存
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="cacheValue"></param>
         public bool StringSet<T>(string cacheKey, T cacheValue)
         {
             if (!string.IsNullOrEmpty(cacheKey) && cacheValue != null)
             {
-                return GetPooledClientManager(cacheKey).StringSet<T>(cacheKey, cacheValue);
-
-
+                return GetPooledClientManager(cacheKey).StringSet(cacheKey, cacheValue);
             }
 
             return false;
         }
 
-        /// <summary>
-        /// 设置缓存
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="cacheValue"></param>
         public async Task<bool> StringSetAsync<T>(string cacheKey, T cacheValue)
         {
             if (!string.IsNullOrEmpty(cacheKey) && cacheValue != null)
             {
-                return await GetPooledClientManager(cacheKey).StringSetAsync<T>(cacheKey, cacheValue);
+                return await GetPooledClientManager(cacheKey).StringSetAsync(cacheKey, cacheValue);
             }
 
             return false;
         }
 
-        /// <summary>
-        /// 设置缓存，可以加缓存过期时间
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="cacheValue"></param>
-        /// <param name="cacheOutTime"></param>
         public bool StringSet<T>(string cacheKey, T cacheValue, TimeSpan cacheOutTime)
         {
             if (!string.IsNullOrEmpty(cacheKey) && cacheValue != null)
             {
-                if (cacheOutTime != null)
-                {
-                    return GetPooledClientManager(cacheKey).StringSet<T>(cacheKey, cacheValue, cacheOutTime);
-                }
-                else
-                {
-                    return StringSet<T>(cacheKey, cacheValue);
-                }
+                return GetPooledClientManager(cacheKey).StringSet(cacheKey, cacheValue, cacheOutTime);
             }
+
             return false;
         }
 
@@ -435,86 +317,39 @@ namespace Kogel.Cacheing.Redis
             return GetPooledClientManager(cacheKey).StringDelete(cacheKey);
         }
 
-        /// <summary>
-        /// 设置缓存，可以加缓存过期时间
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="cacheValue"></param>
-        /// <param name="cacheOutTime"></param>
         public async Task<bool> StringSetAsync<T>(string cacheKey, T cacheValue, TimeSpan cacheOutTime)
         {
             if (!string.IsNullOrEmpty(cacheKey) && cacheValue != null)
             {
-                if (cacheOutTime != null)
-                {
-                    return await GetPooledClientManager(cacheKey).StringSetAsync<T>(cacheKey, cacheValue, cacheOutTime);
-                }
-                else
-                {
-                    return await StringSetAsync<T>(cacheKey, cacheValue);
-                }
+                return await GetPooledClientManager(cacheKey).StringSetAsync(cacheKey, cacheValue, cacheOutTime);
             }
+
             return false;
         }
 
-
-        /// <summary>
-        /// 数字递减
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="val"></param>
-        /// <returns></returns>
-        public double StringDecrement(string cacheKey, double val = 1)
+        public double StringDecrement(string cacheKey, double val = 1.0)
         {
             return GetPooledClientManager(cacheKey).StringDecrement(cacheKey);
         }
 
-
-        /// <summary>
-        /// 数字递减
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="val"></param>
-        /// <returns></returns>
-        public async Task<double> StringDecrementAsync(string cacheKey, double val = 1)
+        public async Task<double> StringDecrementAsync(string cacheKey, double val = 1.0)
         {
             return await GetPooledClientManager(cacheKey).StringDecrementAsync(cacheKey);
         }
 
-        /// <summary>
-        /// 数字递增
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="val"></param>
-        /// <returns></returns>
-        public double StringIncrement(string cacheKey, double val = 1)
+        public double StringIncrement(string cacheKey, double val = 1.0)
         {
             return GetPooledClientManager(cacheKey).StringIncrement(cacheKey);
         }
 
-
-        /// <summary>
-        /// 数字递增
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="val"></param>
-        /// <returns></returns>
-        public async Task<double> StringIncrementAsync(string cacheKey, double val = 1)
+        public async Task<double> StringIncrementAsync(string cacheKey, double val = 1.0)
         {
             return await GetPooledClientManager(cacheKey).StringIncrementAsync(cacheKey);
         }
 
-        #region 发布订阅
-
-        /// <summary>
-        /// 发布一个事件
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="val"></param>
-        /// <returns></returns>
         public long Publish<T>(string channelId, T msg)
         {
-            return GetPooledClientManager(channelId).Publish<T>(channelId, msg);
+            return GetPooledClientManager(channelId).Publish(channelId, msg);
         }
 
         public Task<long> PublishAsync<T>(string channelId, T msg)
@@ -522,45 +357,28 @@ namespace Kogel.Cacheing.Redis
             return GetPooledClientManager(channelId).PublishAsync(channelId, msg);
         }
 
-        /// <summary>
-        /// 订阅一个事件
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="val"></param>
-        /// <returns></returns>
-        public void Subscribe<T>(string channelId, Action<T> handler)
-            where T : class
+        public void Subscribe<T>(string channelId, Action<T> handler) where T : class
         {
-            GetPooledClientManager(channelId).Subscribe<T>(channelId, (channel, value) => { handler(value); });
+            GetPooledClientManager(channelId).Subscribe(channelId, delegate (RedisChannel channel, T value)
+            {
+                handler(value);
+            });
         }
 
         public void Subscribe(string channelId, Action<object> handler)
         {
-            GetPooledClientManager(channelId).Subscribe(channelId, (channel, value) => { handler(value); });
+            GetPooledClientManager(channelId).Subscribe(channelId, delegate (RedisChannel channel, object value)
+            {
+                handler(value);
+            });
         }
 
-        #endregion
-
-        /// <summary>
-        /// 为数字增加val
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="dataKey"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public double HashIncrement(string cacheKey, string dataKey, double value = 1)
+        public double HashIncrement(string cacheKey, string dataKey, double value = 1.0)
         {
             return GetPooledClientManager(cacheKey).HashIncrement(cacheKey, dataKey, value);
         }
 
-        /// <summary>
-        /// 为数字减少val
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="dataKey"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public double HashDecrement(string cacheKey, string dataKey, double value = 1)
+        public double HashDecrement(string cacheKey, string dataKey, double value = 1.0)
         {
             return GetPooledClientManager(cacheKey).HashDecrement(cacheKey, dataKey, value);
         }
@@ -569,7 +387,6 @@ namespace Kogel.Cacheing.Redis
         {
             return GetPooledClientManager(cacheKey).HashKeys<T>(cacheKey);
         }
-
 
         public IDictionary<string, T> HashGetAll<T>(string cacheKey)
         {
@@ -580,7 +397,10 @@ namespace Kogel.Cacheing.Redis
         {
             string cacheKey = dataKey;
             if (dataKey.IndexOf("_") != -1)
+            {
                 cacheKey = dataKey.Substring(0, dataKey.IndexOf("_"));
+            }
+
             return HashGet<T>(cacheKey, dataKey);
         }
 
@@ -599,19 +419,6 @@ namespace Kogel.Cacheing.Redis
             return GetPooledClientManager(cacheKey).HashDelete(cacheKey, dataKey);
         }
 
-        //public bool HashSet<T>(string dataKey, T data, int expireMinutes = 30)
-        //{
-        //    string cacheKey = dataKey;
-        //    if (dataKey.IndexOf("_") != -1)
-        //        cacheKey = dataKey.Substring(0, dataKey.IndexOf("_"));
-        //    bool result = HashSet(cacheKey, dataKey, data);
-        //    if (result)
-        //        ExpireEntryAt(cacheKey, TimeSpan.FromMinutes(expireMinutes));
-        //    return result;
-        //}
-
-        #region Lock
-
         public bool LockTake(string cacheKey, string value, TimeSpan expire)
         {
             return GetPooledClientManager(cacheKey).LockTake(cacheKey, value, expire);
@@ -627,18 +434,7 @@ namespace Kogel.Cacheing.Redis
             return GetPooledClientManager(cacheKey).LockQuery(cacheKey);
         }
 
-        /// <summary>
-        /// 设置互斥锁
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="lockOutTime">锁超时时间</param>
-        /// <param name="retryAttemptMillseconds">尝试间隔时间</param>
-        /// <param name="retryTimes">尝试次数</param>
-        /// <returns></returns>
-        public IMutexDisposable LockMutex(string cacheKey,
-            TimeSpan lockOutTime,
-            int retryAttemptMillseconds = 300,
-            int retryTimes = 100)
+        public IMutexDisposable LockMutex(string cacheKey, TimeSpan lockOutTime, int retryAttemptMillseconds = 300, int retryTimes = 100)
         {
             do
             {
@@ -647,41 +443,30 @@ namespace Kogel.Cacheing.Redis
                     retryTimes--;
                     if (retryTimes < 0)
                     {
-                        //超时异常
-                        throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+                        throw new Exception("互斥锁超时,cacheKey:" + cacheKey);
                     }
 
                     if (retryAttemptMillseconds > 0)
                     {
                         Console.WriteLine($"Wait Lock {cacheKey} to {retryAttemptMillseconds} millseconds");
-                        //获取锁失败则进行锁等待
                         Thread.Sleep(retryAttemptMillseconds);
                     }
+
+                    continue;
                 }
-                else
-                {
-                    return new MutexDisposable(this, cacheKey);
-                }
+
+                return new MutexDisposable(this, cacheKey);
             }
             while (retryTimes > 0);
-            //超时异常
-            throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+            throw new Exception("互斥锁超时,cacheKey:" + cacheKey);
         }
 
-        /// <summary>
-        /// 释放互斥锁
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <returns></returns>
         public void ExitMutex(string cacheKey)
         {
-            var polly = Policy.Handle<Exception>()
-                  .WaitAndRetry(10, retryAttempt => TimeSpan.FromMilliseconds(Math.Pow(2, retryAttempt)), (exception, timespan, retryCount, context) =>
-                  {
-                      Console.WriteLine($"执行异常,重试次数：{retryCount},【异常来自：{exception.GetType().Name}】.");
-                  });
-
-            polly.Execute(() =>
+            Policy.Handle<Exception>().WaitAndRetry(10, (int retryAttempt) => TimeSpan.FromMilliseconds(Math.Pow(2.0, retryAttempt)), delegate (Exception exception, TimeSpan timespan, int retryCount, Context context)
+            {
+                Console.WriteLine($"执行异常,重试次数：{retryCount},【异常来自：{exception.GetType().Name}】.");
+            }).Execute(delegate
             {
                 LockRelease(cacheKey, "");
             });
@@ -689,36 +474,25 @@ namespace Kogel.Cacheing.Redis
 
         public bool HLockTake(string cacheKey, List<string> dataKeys, TimeSpan expire)
         {
-            using (LockMutex($"{cacheKey}_HLockTake", expire))
+            using (LockMutex(cacheKey + "_HLockTake", expire))
             {
-                string hCacheKey = $"{cacheKey}_LockHash";
-                var cacheDataKeys = HashGetAll<string>(hCacheKey);
-                if ((cacheDataKeys is null || cacheDataKeys.Count == 0) && !cacheDataKeys.Any(x => dataKeys.Contains(x.Key)))
+                string hCacheKey = cacheKey + "_LockHash";
+                IDictionary<string, string> dictionary = HashGetAll<string>(hCacheKey);
+                if ((dictionary == null || dictionary.Count == 0) && !dictionary.Any((KeyValuePair<string, string> x) => dataKeys.Contains(x.Key)))
                 {
-                    dataKeys.ForEach(x => HashSet(hCacheKey, x, ""));
+                    dataKeys.ForEach(delegate (string x)
+                    {
+                        HashSet(hCacheKey, x, "");
+                    });
                     ExpireEntryAt(hCacheKey, expire);
                     return true;
                 }
-                else
-                {
-                    return false;
-                }
+
+                return false;
             }
         }
 
-        /// <summary>
-        /// 设置互斥锁
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="lockOutTime">锁超时时间</param>
-        /// <param name="retryAttemptMillseconds">尝试间隔时间</param>
-        /// <param name="retryTimes">尝试次数</param>
-        /// <returns></returns>
-        public IMutexDisposable HLockMutex(string cacheKey,
-            List<string> dataKeys,
-            TimeSpan lockOutTime,
-            int retryAttemptMillseconds = 300,
-            int retryTimes = 100)
+        public IMutexDisposable HLockMutex(string cacheKey, List<string> dataKeys, TimeSpan lockOutTime, int retryAttemptMillseconds = 300, int retryTimes = 100)
         {
             do
             {
@@ -727,137 +501,72 @@ namespace Kogel.Cacheing.Redis
                     retryTimes--;
                     if (retryTimes < 0)
                     {
-                        //超时异常
-                        throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+                        throw new Exception("互斥锁超时,cacheKey:" + cacheKey);
                     }
 
                     if (retryAttemptMillseconds > 0)
                     {
                         Console.WriteLine($"Wait Lock {cacheKey} to {retryAttemptMillseconds} millseconds");
-                        //获取锁失败则进行锁等待
                         Thread.Sleep(retryAttemptMillseconds);
                     }
+
+                    continue;
                 }
-                else
-                {
-                    return new MutexDisposable(this, cacheKey, true, dataKeys);
-                }
+
+                return new MutexDisposable(this, cacheKey, isHLockMutex: true, dataKeys);
             }
             while (retryTimes > 0);
-            //超时异常
-            throw new Exception($"互斥锁超时,cacheKey:{cacheKey}");
+            throw new Exception("互斥锁超时,cacheKey:" + cacheKey);
         }
 
         public void HExitMutex(string cacheKey, List<string> dataKeys)
         {
-            string hCacheKey = $"{cacheKey}_LockHash";
-            dataKeys.ForEach(x => HashDelete(hCacheKey, x));
+            string hCacheKey = cacheKey + "_LockHash";
+            dataKeys.ForEach(delegate (string x)
+            {
+                HashDelete(hCacheKey, x);
+            });
         }
 
-        #endregion Lock
-
-        #region List
-
-        /// <summary>
-        /// 出栈
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="cacheKey"></param>
-        /// <param name="dbNum"></param>
-        /// <returns></returns>
         public T ListLeftPop<T>(string cacheKey)
         {
             return GetPooledClientManager(cacheKey).ListLeftPop<T>(cacheKey);
         }
 
-        /// <summary>
-        /// 入栈
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="cacheKey"></param>
-        /// <param name="value"></param>
-        /// <param name="dbNum"></param>
         public void ListLeftPush<T>(string cacheKey, T value)
         {
-            GetPooledClientManager(cacheKey).ListLeftPush<T>(cacheKey, value);
+            GetPooledClientManager(cacheKey).ListLeftPush(cacheKey, value);
         }
 
-        /// <summary>
-        /// 获取列表长度
-        /// </summary>
-        /// <param name="cacheKey"></param>
-        /// <param name="dbNum"></param>
-        /// <returns></returns>
         public long ListLength(string cacheKey)
         {
             return GetPooledClientManager(cacheKey).ListLength(cacheKey);
         }
 
-        /// <summary>
-        /// 获取列表
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="cacheKey"></param>
-        /// <param name="dbNum"></param>
-        /// <returns></returns>
         public List<T> ListRange<T>(string cacheKey)
         {
             return GetPooledClientManager(cacheKey).ListRange<T>(cacheKey);
         }
 
-        /// <summary>
-        /// 移除一个元素
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="cacheKey"></param>
-        /// <param name="value"></param>
-        /// <param name="dbNum"></param>
         public void ListRemove<T>(string cacheKey, T value)
         {
-            GetPooledClientManager(cacheKey).ListRemove<T>(cacheKey, value);
+            GetPooledClientManager(cacheKey).ListRemove(cacheKey, value);
         }
 
-
-        /// <summary>
-        /// 入队列
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="cacheKey"></param>
-        /// <param name="value"></param>
-        /// <param name="dbNum"></param>
         public void ListRightPush<T>(string cacheKey, T value)
         {
-            GetPooledClientManager(cacheKey).ListRightPush<T>(cacheKey, value);
+            GetPooledClientManager(cacheKey).ListRightPush(cacheKey, value);
         }
 
-        /// <summary>
-        /// 出队列
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="cacheKey"></param>
-        /// <param name="value"></param>
-        /// <param name="dbNum"></param>
         public T ListRightPush<T>(string cacheKey)
         {
             return GetPooledClientManager(cacheKey).ListRightPop<T>(cacheKey);
         }
 
-        /// <summary>
-        /// 出队列
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="cacheKey"></param>
-        /// <param name="value"></param>
-        /// <param name="dbNum"></param>
         public T ListRightPopLeftPush<T>(string sourceCacheKey, string destCacheKey)
         {
             return GetPooledClientManager(sourceCacheKey).ListRightPopLeftPush<T>(sourceCacheKey, destCacheKey);
         }
-
-        #endregion
-
-
-        #region Set
 
         public bool SetAdd<T>(string key, T value)
         {
@@ -913,8 +622,5 @@ namespace Kogel.Cacheing.Redis
         {
             return GetPooledClientManager(command).ExecuteAsync(command, objs);
         }
-
-        #endregion
-        #endregion
     }
 }
