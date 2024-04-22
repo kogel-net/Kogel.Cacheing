@@ -2,22 +2,24 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Channels;
 
-#if NETSTANDARD || NETCOREAPP
+using Microsoft.Extensions.Caching.Memory;
+
+using Newtonsoft.Json;
+
+using Polly;
+
+
 namespace Kogel.Cacheing.Memory
 {
-    using Microsoft.Extensions.Caching.Memory;
-    using Newtonsoft.Json;
-    using Polly;
-    using System.Collections;
-    using System.Collections.Concurrent;
-    using System.Reflection;
-    using System.Threading;
-    using System.Threading.Channels;
-
     public class MemoryCacheManage : ProviderManage, ICacheManager
     {
-        private static readonly IMemoryCache _cache = new MemoryCache(new MemoryCacheOptions
+        private static readonly MemoryCache _cache = new MemoryCache(new MemoryCacheOptions
         {
             ExpirationScanFrequency = TimeSpan.FromSeconds(1.0)
         });
@@ -84,7 +86,7 @@ namespace Kogel.Cacheing.Memory
 
         public IDictionary<string, T> HashGetAll<T>(string cacheKey)
         {
-            IDictionary dictionary = _cache.GetType().GetField("_entries", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_cache) as IDictionary;
+            IDictionary dictionary = GetEntries();
             Dictionary<string, T> dictionary2 = new Dictionary<string, T>();
             if (dictionary == null)
             {
@@ -102,6 +104,12 @@ namespace Kogel.Cacheing.Memory
             }
 
             return dictionary2;
+        }
+
+        private IDictionary GetEntries()
+        {
+            var coherentState = _cache.GetType().GetField("_coherentState", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_cache);
+            return coherentState.GetType().GetField("_entries", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(coherentState) as IDictionary;
         }
 
         public double HashIncrement(string cacheKey, string dataKey, double value = 1.0)
@@ -457,4 +465,3 @@ namespace Kogel.Cacheing.Memory
         }
     }
 }
-#endif

@@ -1,8 +1,6 @@
 ﻿using Kogel.Cacheing;
 using Kogel.Cacheing.Redis;
 using System;
-
-#if NETSTANDARD || NETCOREAPP
 using Kogel.Cacheing.Memory;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -40,7 +38,6 @@ namespace Microsoft.Extensions.DependencyInjection
         }
     }
 }
-#endif
 
 namespace Kogel.Cacheing
 {

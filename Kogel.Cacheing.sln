@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31112.23
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34622.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kogel.Cacheing", "Kogel.Cacheing\Kogel.Cacheing.csproj", "{FC08F063-A64B-47F5-BE89-265AF79492BE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kogel.Cacheing.Test", "Kogel.Cacheing.Test\Kogel.Cacheing.Test.csproj", "{BB139736-D8CB-4A0D-8BCA-F04CC340B3B6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kogel.Cacheing.Test", "Kogel.Cacheing.Test\Kogel.Cacheing.Test.csproj", "{A09C7D26-A02A-4A85-B6FC-9A89E3A182F7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{FC08F063-A64B-47F5-BE89-265AF79492BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FC08F063-A64B-47F5-BE89-265AF79492BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FC08F063-A64B-47F5-BE89-265AF79492BE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BB139736-D8CB-4A0D-8BCA-F04CC340B3B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BB139736-D8CB-4A0D-8BCA-F04CC340B3B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BB139736-D8CB-4A0D-8BCA-F04CC340B3B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BB139736-D8CB-4A0D-8BCA-F04CC340B3B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A09C7D26-A02A-4A85-B6FC-9A89E3A182F7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A09C7D26-A02A-4A85-B6FC-9A89E3A182F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A09C7D26-A02A-4A85-B6FC-9A89E3A182F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A09C7D26-A02A-4A85-B6FC-9A89E3A182F7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

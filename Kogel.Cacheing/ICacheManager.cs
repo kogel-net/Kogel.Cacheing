@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
-#if NETSTANDARD || NETCOREAPP
 using Kogel.Cacheing.Memory;
 using Microsoft.Extensions.DependencyInjection;
-#endif
 
 namespace Kogel.Cacheing
 {

@@ -1,7 +1,6 @@
 ﻿using StackExchange.Redis;
 using System;
 using System.Collections.Concurrent;
-using System.Configuration;
 
 namespace Kogel.Cacheing.Redis
 {

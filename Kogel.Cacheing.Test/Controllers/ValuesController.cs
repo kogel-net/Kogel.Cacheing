@@ -1,8 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Kogel.Cacheing.Test.Controllers
 {
@@ -86,7 +82,7 @@ namespace Kogel.Cacheing.Test.Controllers
         [HttpGet]
         public async Task<ActionResult<object>> Mutex(string cacheKey = "test_cache_mutex")
         {
-            using (var mutex = cacheManager.LockMutex(cacheKey, TimeSpan.FromSeconds(5)))
+            using (var mutex = cacheManager.LockMutex(cacheKey, TimeSpan.FromSeconds(10)))
             {
                 await Task.Delay(1000);
                 return "互斥锁xxx";
@@ -102,7 +98,11 @@ namespace Kogel.Cacheing.Test.Controllers
         [HttpGet]
         public async Task<ActionResult<object>> HMutex(string cacheKey, List<string> dataKeys)
         {
-            using (var mutex = cacheManager.HLockMutex(cacheKey, dataKeys, TimeSpan.FromSeconds(5)))
+            string hCacheKey = "123" + "_LockHash";
+            IDictionary<string, string> dictionary = cacheManager.HashGetAll<string>(hCacheKey);
+
+            dataKeys = new List<string> { "48a52160-2975-4a92-e16a-08dc5f5434c4" };
+            using (cacheManager.HLockMutex("FREEZE_ACCOUNT_SUMMONS_KEY_{0}", dataKeys, TimeSpan.FromSeconds(10)))
             {
                 await Task.Delay(1000);
                 return "哈希互斥锁xxx";
