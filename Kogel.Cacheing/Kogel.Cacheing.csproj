@@ -9,7 +9,7 @@
 		<Company>Kogel.Cacheing</Company>
 		<Product>Kogel.Cacheing</Product>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-		<Version>0.0.0.7</Version>
+		<Version>0.0.0.8</Version>
 		<PackageIcon>icon.jpg</PackageIcon>
 	</PropertyGroup>
 	<ItemGroup>
